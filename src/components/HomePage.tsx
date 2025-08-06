@@ -110,7 +110,7 @@ export function HomePage() {
         <div className="text-center mb-8 sm:mb-12">
           <div className="mb-6">
             <h1 className="text-5xl sm:text-7xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-2">
-              Live Chain Reaction
+              Chain Reaction
             </h1>
             <div className="w-24 h-1 bg-gradient-to-r from-blue-500 to-purple-500 mx-auto rounded-full"></div>
           </div>
