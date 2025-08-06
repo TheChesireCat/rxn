@@ -1,0 +1,224 @@
+UI is mobile focused. on large screens make a 16:9 screen with height same as the screen but width chopped
+
+
+1. user sees home screen if they navigate directly to the application
+    1. new game - creates a new room with settings 
+        1. room name
+        2. max players
+        3. board size
+        4. time limit [ delete room after time limit expires even if game is active ]
+        5. game state [ done | in progress ]
+        6. start button
+    2. join game 
+        1. enter room name 
+        2. join button
+    3. profile
+        1. set a username if it isn’t claimed
+        2. set password to claim the username, the username can be temporary if a password is not provided
+        3. leaderboard [ not now , later ]
+        4. save button
+
+2. game screen
+    1. room name 
+    2. players icon with count, when user taps on the palyers icon with the count we get a modal that opens with the scroll of all users in the game with the current number of cells occupied by the user. the modal blurs the background 
+    3. the game board
+        BIG DESCRIPTION WITH COMPONENTS AND EXAMPLES OF CODE for animation etc
+        we begin by making small prototypes of each screen
+        a. a cols x rows grid of squares 
+        b. 
+    4. score bar chart (given the current number of cells occupied by each users) 
+
+
+
+GAME LOOP
+
+# Chain Reaction Game Loop - Technical Implementation Guide
+
+## Data Structures
+
+### Game State
+```javascript
+gameState = {
+  grid: 2D array of cells,
+  currentPlayer: integer (0 to numPlayers-1),
+  players: array of player objects,
+  numPlayers: integer (2-10),
+  gameStarted: boolean,
+  processing: boolean (prevents input during animations),
+  winner: integer or null,
+  moveCount: integer (tracks total moves)
+}
+
+cell = {
+  owner: integer (player index) or null,
+  orbs: integer (0 to criticalMass)
+}
+
+player = {
+  id: integer,
+  color: hex string,
+  alive: boolean,
+  orbCount: integer,
+  hasMoved: boolean (for elimination logic)
+}
+```
+
+## Main Game Loop
+
+### 1. Initialization Phase
+```
+1. Set numPlayers and gridSize
+2. Initialize grid with empty cells (owner: null, orbs: 0)
+3. Create player objects with unique colors
+4. Set currentPlayer = 0
+5. Set gameStarted = true
+```
+
+### 2. Input Phase (Player Turn)
+```
+WHEN player clicks cell at (row, col):
+  IF game not started OR processing OR winner exists:
+    RETURN (ignore input)
+  
+  IF cell.owner != null AND cell.owner != currentPlayer:
+    RETURN (invalid move - can't place in opponent's cell)
+  
+  PROCEED with move
+```
+
+### 3. Move Execution Phase
+```
+1. Set processing = true (lock input)
+2. Clone current grid state
+3. Update cell:
+   - Set cell.owner = currentPlayer
+   - Increment cell.orbs by 1
+4. Mark player.hasMoved = true
+5. Increment moveCount
+6. Enter Explosion Resolution Phase
+```
+
+### 4. Explosion Resolution Phase (CRITICAL - Recursive Process)
+```
+FUNCTION processExplosions(grid):
+  WHILE explosions exist:
+    1. Scan grid for unstable cells:
+       FOR each cell in grid:
+         IF cell.orbs >= getCriticalMass(row, col):
+           Add to explosionQueue
+    
+    2. IF explosionQueue is empty:
+       BREAK (no more explosions)
+    
+    3. Process all explosions simultaneously:
+       FOR each explosion in explosionQueue:
+         a. Calculate criticalMass for cell position
+         b. Subtract criticalMass from cell.orbs
+         c. IF cell.orbs == 0: set cell.owner = null
+         d. Distribute orbs to adjacent cells:
+            FOR each adjacent cell (up, down, left, right):
+              IF cell is within bounds:
+                - Set adjacentCell.owner = explosion.owner
+                - Increment adjacentCell.orbs by 1
+    
+    4. Update visual state (trigger animations)
+    5. Wait for animations to complete
+    6. Continue loop (check for new explosions)
+
+FUNCTION getCriticalMass(row, col):
+  corners = 2
+  edges = 3  
+  center = 4
+  
+  IF (row == 0 OR row == maxRow) AND (col == 0 OR col == maxCol):
+    RETURN 2 (corner)
+  ELSE IF row == 0 OR row == maxRow OR col == 0 OR col == maxCol:
+    RETURN 3 (edge)
+  ELSE:
+    RETURN 4 (center)
+```
+
+### 5. State Update Phase
+```
+1. Count orbs for each player:
+   FOR each cell in grid:
+     IF cell.owner != null:
+       players[cell.owner].orbCount += cell.orbs
+
+2. Check eliminations:
+   FOR each player:
+     IF player.alive AND player.orbCount == 0:
+       IF player.hasMoved OR moveCount > numPlayers:
+         player.alive = false
+
+3. Check win condition:
+   alivePlayers = players.filter(p => p.alive)
+   IF alivePlayers.length == 1:
+     winner = alivePlayers[0].id
+     gameStarted = false
+     RETURN (game over)
+```
+
+### 6. Turn Transition Phase
+```
+1. Find next alive player:
+   DO:
+     currentPlayer = (currentPlayer + 1) % numPlayers
+   WHILE !players[currentPlayer].alive
+
+2. Set processing = false (unlock input)
+3. Update UI to show new current player
+4. Return to Input Phase
+```
+
+## Critical Implementation Details
+
+### Chain Reaction Algorithm
+The explosion resolution MUST:
+1. **Process explosions in waves** - All cells that need to explode in the current state explode simultaneously
+2. **Continue until stable** - Keep checking for new explosions after each wave
+3. **Maintain ownership** - Exploding orbs carry their owner's ID to captured cells
+
+### Edge Cases to Handle
+1. **First move elimination** - Don't eliminate players who haven't moved yet
+2. **Simultaneous explosions** - Multiple cells can explode in the same wave
+3. **Board boundaries** - Orbs can't spread outside the grid
+4. **Complete wipeout** - A player can lose all orbs in one chain reaction
+
+### Animation Synchronization
+```
+1. Start animations for all orbs in current explosion wave
+2. Update source cells immediately (remove orbs)
+3. Wait for animation duration
+4. Update destination cells (add orbs)
+5. Clear animation objects
+6. Check for next explosion wave
+```
+
+### Performance Considerations
+1. **Deep clone grid** for each state change to avoid mutations
+2. **Batch animations** for simultaneous explosions
+3. **Lock input** during processing to prevent race conditions
+4. **Optimize explosion detection** - only check cells that received orbs
+
+## Example Turn Execution
+```
+Turn: Player 1 places orb at (2,2)
+1. Cell (2,2): owner=1, orbs=3→4 (critical mass=4)
+2. Explosion at (2,2): 
+   - (2,2) becomes owner=1, orbs=0
+   - (1,2) receives orb: owner=1, orbs=2→3 (critical!)
+   - (3,2) receives orb: owner=1, orbs=1→2
+   - (2,1) receives orb: owner=0→1, orbs=1 (captured!)
+   - (2,3) receives orb: owner=1, orbs=0→1
+3. Secondary explosion at (1,2) (edge cell):
+   - (1,2) becomes owner=1, orbs=0
+   - (0,2) receives orb: owner=1, orbs=0→1
+   - (1,1) receives orb: owner=2→1, orbs=2→3 (captured!)
+   - (1,3) receives orb: owner=1, orbs=1→2
+4. Check for more explosions... none found
+5. Update player orb counts
+6. Player 2's turn
+```
+
+This implementation ensures fair gameplay, smooth animations, and correct chain reaction propagation.
