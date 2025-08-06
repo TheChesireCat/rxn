@@ -25,20 +25,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch current room state
-    const roomQuery = await db.query({
+    // Try to find room by ID first, then by name if not found
+    // This allows joining with either room ID or room name
+    let roomQuery = await db.query({
       rooms: {
         $: { where: { id: body.roomId } }
       }
     });
-
-    const room = roomQuery.rooms[0];
+    
+    let room = roomQuery.rooms[0];
+    
+    // If not found by ID, try searching by name
+    if (!room) {
+      roomQuery = await db.query({
+        rooms: {
+          $: { where: { name: body.roomId } }
+        }
+      });
+      room = roomQuery.rooms[0];
+    }
+    
     if (!room) {
       return NextResponse.json(
         { success: false, error: 'Room not found' },
         { status: 404 }
       );
     }
+
+    // Use the actual room ID for all database operations
+    const actualRoomId = room.id;
 
     const gameState = room.gameState;
     const settings = room.settings;
@@ -52,7 +67,7 @@ export async function POST(request: NextRequest) {
       
       // Update room in database
       await db.transact(
-        db.tx.rooms[body.roomId].update({
+        db.tx.rooms[actualRoomId].update({
           gameState: {
             ...gameState,
             players: gameState.players,
@@ -63,7 +78,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         data: {
-          roomId: body.roomId,
+          roomId: actualRoomId,
           room,
           playerRole: 'player',
           playerId: body.userId,
@@ -79,7 +94,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         data: {
-          roomId: body.roomId,
+          roomId: actualRoomId,
           room,
           playerRole: 'spectator',
           playerId: body.userId,
@@ -93,7 +108,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         data: {
-          roomId: body.roomId,
+          roomId: actualRoomId,
           room,
           playerRole: 'spectator',
           playerId: body.userId,
