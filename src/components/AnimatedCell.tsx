@@ -2,14 +2,14 @@
 
 import React, { useEffect, useRef } from 'react';
 import { useSpring, animated, useSpringValue, config } from '@react-spring/web';
-import { Cell as CellType } from '@/types/game';
-import { PLAYER_COLORS } from '@/lib/gameLogic';
+import { Cell as CellType, Player } from '@/types/game';
 import { ANIMATION_TIMING, SPRING_CONFIG } from '@/lib/animationUtils';
 
 interface AnimatedCellProps {
   cell: CellType;
   row: number;
   col: number;
+  players: Player[];
   isCurrentPlayerTurn: boolean;
   currentPlayerId: string;
   onCellClick: (row: number, col: number) => void;
@@ -22,6 +22,7 @@ export function AnimatedCell({
   cell,
   row,
   col,
+  players,
   isCurrentPlayerTurn,
   currentPlayerId,
   onCellClick,
@@ -32,18 +33,14 @@ export function AnimatedCell({
   const canClick = !disabled && !isAnimating && isCurrentPlayerTurn && (!cell.ownerId || cell.ownerId === currentPlayerId);
   const prevOrbCount = useRef(cell.orbs);
   
-  // Get player color index based on ownerId
-  const getPlayerColorIndex = (ownerId: string | undefined): number => {
-    if (!ownerId) return 0;
-    let hash = 0;
-    for (let i = 0; i < ownerId.length; i++) {
-      hash = ((hash << 5) - hash + ownerId.charCodeAt(i)) & 0xffffffff;
-    }
-    return Math.abs(hash) % PLAYER_COLORS.length;
+  // Get the actual player color from the players array
+  const getPlayerColor = (ownerId: string | undefined): string => {
+    if (!ownerId) return '#999999'; // Default gray for empty cells
+    const player = players.find(p => p.id === ownerId);
+    return player?.color || '#999999'; // Fallback to gray if player not found
   };
 
-  const playerColorIndex = getPlayerColorIndex(cell.ownerId);
-  const playerColor = PLAYER_COLORS[playerColorIndex];
+  const playerColor = getPlayerColor(cell.ownerId);
 
   // Ultra-fast orb count animation
   const orbCountSpring = useSpringValue(cell.orbs, {

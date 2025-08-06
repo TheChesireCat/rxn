@@ -13,7 +13,8 @@ import {
   ExplosionAnimation, 
   PlacementAnimation 
 } from '@/lib/animationUtils';
-import { PLAYER_COLORS, processMove } from '@/lib/gameLogic';
+import { processMove } from '@/lib/gameLogic';
+import { PLAYER_COLORS } from '@/lib/constants';
 
 interface GameBoardProps {
   gameState: GameState;
@@ -337,6 +338,7 @@ export function GameBoard({
                       cell={cell}
                       row={rowIndex}
                       col={colIndex}
+                      players={displayState.players}
                       isCurrentPlayerTurn={isCurrentPlayerTurn && isGameActive}
                       currentPlayerId={currentUserId}
                       onCellClick={handleCellClick}

@@ -394,16 +394,5 @@ export function handleMoveTimeout(gameState: GameState): GameState {
   return newGameState;
 }
 
-/**
- * Generate player colors
- */
-export const PLAYER_COLORS = [
-  "#0070f3", // Blue
-  "#f81ce5", // Pink
-  "#7928ca", // Purple
-  "#ff0080", // Red
-  "#00d9ff", // Cyan
-  "#50e3c2", // Teal
-  "#f5a623", // Orange
-  "#bd10e0", // Magenta
-] as const;
+// Player colors are now imported from shared constants
+// See /src/lib/constants.ts for PLAYER_COLORS

@@ -1,20 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb as db } from '@/lib/admin';
 import type { JoinRoomRequest, Player } from '@/types/game';
+import { PLAYER_COLORS, GAME_CONFIG } from '@/lib/constants';
 
-// Player colors for the game
-const PLAYER_COLORS = [
-  '#FF6B6B', // Red
-  '#4ECDC4', // Teal
-  '#45B7D1', // Blue
-  '#96CEB4', // Green
-  '#FFEAA7', // Yellow
-  '#DDA0DD', // Plum
-  '#98D8C8', // Mint
-  '#F7DC6F', // Light Yellow
-];
-
-const MAX_USERNAME_LENGTH = 30;
+const { MAX_USERNAME_LENGTH } = GAME_CONFIG;
 
 export async function POST(request: NextRequest) {
   try {
