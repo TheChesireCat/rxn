@@ -4,6 +4,8 @@
 
 The Live Chain Reaction game is built using a server-authoritative architecture with Next.js for the frontend and API routes, and InstantDB for real-time state storage and synchronization. The system ensures game integrity by processing all game logic on the server while providing real-time updates to all connected clients.
 
+**Implementation Status**: The architecture has been successfully implemented with clear separation between client-side rendering (using `db` from `@instantdb/react`) and server-side authority (using `adminDb` from `@instantdb/admin`). All core architectural components are functional and tested. Recent major enhancements include a unified UI system, professional animation framework, and complete emoji reactions implementation.
+
 ## Architecture
 
 ### High-Level Architecture
@@ -60,47 +62,71 @@ sequenceDiagram
 
 ### Frontend Components
 
-#### Core Components
-- **GameProvider**: React context for game state management
-- **GameBoard**: Main game grid component with cell interactions
-- **PlayerList**: Displays current players, their colors, and orb counts
-- **GameControls**: Turn indicators, timers, and action buttons
-- **ChatPanel**: Real-time messaging interface
-- **SpectatorView**: Read-only game view for non-players
+#### Core Components (All Implemented)
+- **GameProvider**: React context for game state management (`/src/contexts/GameContext.tsx`)
+- **GameBoard**: Main game grid component with cell interactions and unified sizing algorithm (`/src/components/GameBoard.tsx`)
+- **PlayerList**: Displays current players, their colors, and orb counts (`/src/components/PlayerList.tsx`)
+- **GameControls**: Turn indicators, timers, and action buttons (`/src/components/GameControls.tsx`)
+- **ChatModal**: Modal-based chat for players in GameRoom (`/src/components/ChatModalFixed.tsx`)
+- **ChatPanel**: Embedded chat panel for spectators (`/src/components/ChatPanel.tsx`)
+- **SpectatorView**: Read-only game view for non-players (`/src/components/SpectatorView.tsx`)
+- **ReactionPicker**: Emoji selection component with 20 predefined reactions (`/src/components/ReactionPicker.tsx`)
+- **ReactionOverlay**: Animated reaction display with real-time sync (`/src/components/ReactionOverlay.tsx`)
+
+#### New UI System Components (Recently Added)
+- **MinimalTopBar**: Streamlined header with dynamic content and room ID copy (`/src/components/MinimalTopBar.tsx`)
+- **FloatingActionBar**: Unified action button system with mobile FAB and desktop horizontal bar (`/src/components/FloatingActionBar.tsx`)
+- **ModalBase**: Reusable modal foundation for all overlays (`/src/components/ModalBase.tsx`)
+- **PlayersModal**: Player list in modal format (`/src/components/PlayersModal.tsx`)
+- **LobbyModal**: Pre-game lobby in modal format (`/src/components/LobbyModal.tsx`)
+
+#### Animation System Components (Enhanced)
+- **AnimatedCell**: Individual cell with smooth orb transitions and explosion effects (`/src/components/AnimatedCell.tsx`)
+- **AnimationLayer**: Flying orbs and chain reaction visual effects (`/src/components/AnimationLayer.tsx`)
+- **VictoryMessage**: Enhanced victory experience with differentiated messages (`/src/components/VictoryMessage.tsx`)
 
 #### UI Component Hierarchy
 ```
 App
 ├── HomePage (lobby/join interface)
-├── GameRoom
+├── GameRoom (for players)
 │   ├── GameProvider (context)
 │   ├── GameBoard
 │   │   └── Cell (individual grid cells)
-│   ├── PlayerList
-│   ├── GameControls
-│   │   ├── TurnIndicator
-│   │   ├── GameTimer
-│   │   └── ActionButtons (undo, etc.)
-│   ├── ChatPanel
-│   └── SpectatorControls
+│   ├── FloatingActionBar (mobile-friendly buttons)
+│   ├── Modals (all use ModalBase)
+│   │   ├── ChatModal (chat in modal overlay)
+│   │   ├── PlayersModal
+│   │   ├── LobbyModal
+│   │   └── Settings/Stats/Help modals
+│   └── MinimalTopBar
+└── SpectatorView (for spectators)
+    ├── GameBoard (read-only)
+    ├── PlayerList
+    ├── ChatPanel (embedded sidebar)
+    └── GameTimers
 ```
 
 ### Backend API Endpoints
 
-#### Room Management
-- `POST /api/room/create` - Create new game room
-- `POST /api/room/join` - Join existing room
-- `GET /api/room/[id]` - Get room details
+#### Room Management (Implemented)
+- `POST /api/room/create` - Create new game room ✅
+- `POST /api/room/join` - Join existing room ✅
+- `GET /api/room/[id]` - Get room details ✅
 
-#### Game Actions
-- `POST /api/game/move` - Submit player move
-- `POST /api/game/undo` - Undo last move (if enabled)
-- `POST /api/game/start` - Start game from lobby
-- `POST /api/game/reset` - Reset game state
+#### Game Actions (Implemented)
+- `POST /api/game/move` - Submit player move ✅
+- `POST /api/game/undo` - Undo last move (if enabled) ✅
+- `POST /api/game/start` - Start game from lobby ✅
+- `POST /api/game/timeout` - Handle game/move timeouts ✅
+- `POST /api/game/restart` - Restart game with same players (host only) ✅
 
-#### User Management
-- `POST /api/user/create` - Create temporary user session
-- `GET /api/user/stats` - Get player statistics
+#### Chat System (Implemented)
+- `POST /api/chat/send` - Send chat message ✅
+
+#### User Management (Partially Implemented)
+- `POST /api/user/create` - Create temporary user session ✅
+- `GET /api/user/stats` - Get player statistics ❌ (Not implemented)
 
 ## Data Models
 
@@ -236,21 +262,29 @@ const schema = i.schema({
 - **Timeout Handling**: Skip turns for disconnected players after timeout
 - **Reconnection**: Allow seamless rejoin with session restoration
 
-### Frontend Error Boundaries
+### Frontend Error Handling
+
+**Current Implementation**:
+- Network error handling in API calls with user-friendly messages
+- Graceful disconnection handling via InstantDB presence
+- Error states in components with fallback UI
+- Session restoration on reconnection
+
+**Pending Implementation**:
+- React Error Boundaries for component crash recovery
+- Global error reporting system
+- Automatic retry mechanisms for transient failures
 
 ```typescript
-// Error boundary for game components
-class GameErrorBoundary extends React.Component {
-  // Handle rendering errors gracefully
-  // Provide fallback UI and error reporting
+// Example of current error handling pattern
+try {
+  const response = await fetch('/api/game/move', {...});
+  if (!response.ok) throw new Error('Move failed');
+} catch (error) {
+  console.error('Error:', error);
+  // Show user-friendly message
+  alert('Failed to make move. Please try again.');
 }
-
-// Network error handling
-const handleNetworkError = (error: Error) => {
-  // Retry logic for transient failures
-  // User notification for persistent issues
-  // Graceful degradation when possible
-};
 ```
 
 ## Testing Strategy
@@ -298,6 +332,84 @@ const testScenarios = [
   }
 ];
 ```
+
+## Current Implementation Structure
+
+### Project File Organization
+```
+/projects/rxn_mcp/
+├── src/
+│   ├── app/                        # Next.js app directory
+│   │   ├── api/                   # Server-side API routes
+│   │   │   ├── chat/              # Chat messaging endpoints
+│   │   │   ├── game/              # Game action endpoints
+│   │   │   │   ├── move/         # Move validation and processing
+│   │   │   │   ├── start/        # Game initialization
+│   │   │   │   ├── timeout/      # Timeout handling
+│   │   │   │   ├── undo/         # Undo functionality
+│   │   │   │   └── restart/      # Game restart functionality
+│   │   │   ├── room/              # Room management
+│   │   │   └── user/              # User session management
+│   │   ├── room/[id]/            # Dynamic room pages
+│   │   └── page.tsx               # Home page
+│   ├── components/                # React components (30+ components)
+│   │   ├── __tests__/            # Component unit tests (14 test files)
+│   │   ├── GameRoom.tsx          # Main game interface with unified UI
+│   │   ├── FloatingActionBar.tsx # Mobile FAB and desktop action bar
+│   │   ├── MinimalTopBar.tsx     # Streamlined header with dynamic content
+│   │   ├── ModalBase.tsx         # Reusable modal foundation
+│   │   ├── AnimatedCell.tsx      # Enhanced cell with smooth animations
+│   │   ├── AnimationLayer.tsx    # Flying orbs and chain reaction effects
+│   │   ├── ReactionPicker.tsx    # Emoji selection with 20 reactions
+│   │   ├── ReactionOverlay.tsx   # Animated reactions with real-time sync
+│   │   └── [other components]    # Additional UI components
+│   ├── contexts/                  # React contexts
+│   │   └── GameContext.tsx       # Main game state provider
+│   ├── lib/                       # Utilities and logic
+│   │   ├── hooks/                # Custom React hooks
+│   │   ├── instant.ts            # Client-side InstantDB
+│   │   ├── admin.ts              # Server-side InstantDB
+│   │   ├── gameLogic.ts          # Core game mechanics
+│   │   ├── animationUtils.ts     # Animation calculations and utilities
+│   │   └── [other utilities]     # Helper functions
+│   └── types/                     # TypeScript definitions
+├── instant.schema.ts              # Database schema
+├── instant.perms.ts               # Access permissions
+├── package.json                   # Dependencies (Next.js 15, React 19)
+└── .kiro/specs/                   # Project specifications
+```
+
+### Key Implementation Decisions
+
+1. **Database Client Separation**: Fixed the critical issue of using React client in server routes by creating separate imports:
+   - Client components: `import { db } from '@/lib/instant'`
+   - Server routes: `import { adminDb } from '@/lib/admin'`
+
+2. **Unified UI Architecture**: Complete redesign for optimal user experience:
+   - **Game-First Layout**: 70-80% of screen dedicated to game board
+   - **Progressive Disclosure**: Information shown only when needed
+   - **Mobile FAB System**: Expandable floating action button for mobile
+   - **Desktop Action Bar**: Horizontal button bar at bottom center
+   - **Modal-Based Panels**: All secondary UI in overlays to maximize game space
+
+3. **Chat Implementation Strategy**: 
+   - **Players (GameRoom)**: Use `ChatModal` - modal overlay that can be opened/closed to maximize game space
+   - **Spectators (SpectatorView)**: Use `ChatPanel` - permanent sidebar since they have more screen space
+   - Both query ALL messages then filter client-side to avoid InstantDB query issues
+
+4. **Animation System**: Professional-grade animations using react-spring:
+   - **Individual Orb Transitions**: Each orb animates with spring physics
+   - **Cell-Based Explosions**: Separate explosion effects from cell scaling
+   - **Flying Orbs**: Visual representation of chain reaction spread
+   - **Coordinate System Alignment**: Animation overlays share same coordinate system as game elements
+
+5. **Component Architecture**: Using composition pattern with modals (via ModalBase) for better mobile UX
+
+6. **State Management**: Leveraging InstantDB's real-time capabilities for state sync rather than Redux/Zustand
+
+7. **Emoji Reactions**: Real-time sync using InstantDB ephemeral topics with proper ID generation and animation handling
+
+8. **Testing Approach**: Unit tests for components and logic, integration tests for key flows
 
 ## Security Considerations
 

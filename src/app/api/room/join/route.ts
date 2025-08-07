@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
     
     // Update room in database
     await db.transact(
-      db.tx.rooms[body.roomId].update({
+      db.tx.rooms[actualRoomId].update({
         gameState: {
           ...gameState,
           players: updatedPlayers,
@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: {
-        roomId: body.roomId,
+        roomId: actualRoomId,
         room: {
           ...room,
           gameState: {

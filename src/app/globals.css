@@ -153,3 +153,165 @@ body {
 .dark .shadow-glow {
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3), 0 0 50px rgba(59, 130, 246, 0.2);
 }
+
+/* Floating Action Button Animations */
+@keyframes float-in {
+  0% {
+    opacity: 0;
+    transform: scale(0) translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-float-in {
+  animation: float-in 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55) both;
+}
+
+/* Modal Animations */
+@keyframes slide-up {
+  0% {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-down {
+  0% {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-in-right {
+  0% {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fade-in {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
+.animate-slide-down {
+  animation: slide-down 0.3s ease-out;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.3s ease-out;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+/* Unified Board Container */
+.game-board-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: calc(100vh - 160px);
+}
+
+/* Responsive Cell Sizing */
+.game-grid {
+  display: grid;
+  place-items: center;
+  transition: all 0.3s ease;
+}
+
+/* Floating Elements */
+.floating-element {
+  position: fixed;
+  z-index: 30;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Minimal Top Bar */
+.minimal-top-bar {
+  height: 48px;
+  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.dark .minimal-top-bar {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+/* Mobile-first utilities */
+@media (max-width: 639px) {
+  .mobile-fullscreen {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+  }
+  
+  .mobile-bottom-sheet {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    border-radius: 1rem 1rem 0 0;
+  }
+}
+
+/* Desktop enhancements */
+@media (min-width: 640px) {
+  .desktop-hover-scale:hover {
+    transform: scale(1.02);
+  }
+  
+  .desktop-hover-shadow:hover {
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  }
+}
+
+/* Smooth transitions for state changes */
+.transition-smooth {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Focus ring improvements */
+.focus-ring:focus {
+  outline: none;
+  ring: 2px;
+  ring-offset: 2px;
+  ring-color: rgba(59, 130, 246, 0.5);
+}
+
+/* Notification badge pulse */
+@keyframes badge-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+}
+
+.badge-pulse {
+  animation: badge-pulse 2s infinite;
+}

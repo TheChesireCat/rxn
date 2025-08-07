@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useSpring, animated, useSprings } from '@react-spring/web';
+import { useSpring, animated, config } from '@react-spring/web';
 import { 
   OrbAnimation, 
   ExplosionAnimation, 
@@ -9,6 +9,71 @@ import {
   ANIMATION_TIMING,
   getCellPosition 
 } from '@/lib/animationUtils';
+
+interface FlyingOrbProps {
+  animation: OrbAnimation;
+  cellSize: number;
+  gap: number;
+  onComplete: () => void;
+}
+
+// Individual flying orb component
+function FlyingOrb({ animation, cellSize, gap, onComplete }: FlyingOrbProps) {
+  const fromPos = getCellPosition(animation.fromRow, animation.fromCol, cellSize, gap);
+  const toPos = getCellPosition(animation.toRow, animation.toCol, cellSize, gap);
+  
+  const fromPx = { 
+    x: fromPos.x + cellSize / 2, 
+    y: fromPos.y + cellSize / 2 
+  };
+  const toPx = { 
+    x: toPos.x + cellSize / 2, 
+    y: toPos.y + cellSize / 2 
+  };
+
+  // Calculate orb size relative to cell size
+  const orbSize = Math.max(12, Math.floor(cellSize * 0.25)); // 25% of cell size, min 12px
+
+  const spring = useSpring({
+    from: { ...fromPx, scale: 1, opacity: 1 },
+    to: async (next) => {
+      // Wait for the delay
+      await new Promise(resolve => setTimeout(resolve, animation.delay));
+      // Fly to target
+      await next({ 
+        ...toPx, 
+        scale: 0.8, 
+        opacity: 0.9, 
+        config: { tension: 200, friction: 20 } 
+      });
+      // Fade out
+      await next({ 
+        scale: 0.5, 
+        opacity: 0, 
+        config: { duration: 100 } 
+      });
+      onComplete();
+    },
+  });
+
+  return (
+    <animated.div
+      className="absolute rounded-full pointer-events-none"
+      style={{
+        width: orbSize,
+        height: orbSize,
+        background: animation.color,
+        left: spring.x,
+        top: spring.y,
+        transform: spring.scale.to(s => `translate(-50%, -50%) scale(${s})`),
+        opacity: spring.opacity,
+        boxShadow: `0 0 20px ${animation.color}`,
+        filter: 'brightness(1.5)',
+        zIndex: 100,
+      }}
+    />
+  );
+}
 
 interface AnimationLayerProps {
   placementAnimation?: PlacementAnimation;
@@ -27,161 +92,64 @@ export function AnimationLayer({
   gap,
   onAnimationComplete,
 }: AnimationLayerProps) {
-  const [activeAnimations, setActiveAnimations] = useState<{
-    explosions: ExplosionAnimation[];
-    orbs: OrbAnimation[];
-    placement?: PlacementAnimation;
-  }>({
-    explosions: [],
-    orbs: [],
-  });
+  const [activeOrbs, setActiveOrbs] = useState<OrbAnimation[]>([]);
+  const [completedOrbs, setCompletedOrbs] = useState<Set<string>>(new Set());
 
-  // Start animations when new ones are provided
+  // Start orb animations
   useEffect(() => {
-    if (placementAnimation || explosionAnimations.length > 0 || orbAnimations.length > 0) {
-      setActiveAnimations({
-        placement: placementAnimation,
-        explosions: explosionAnimations,
-        orbs: orbAnimations,
-      });
-
-      // Calculate total animation duration
-      const maxExplosionDelay = Math.max(0, ...explosionAnimations.map(a => a.delay));
-      const maxOrbDelay = Math.max(0, ...orbAnimations.map(a => a.delay));
-      const totalDuration = Math.max(
-        ANIMATION_TIMING.PLACEMENT_DURATION,
-        maxExplosionDelay + ANIMATION_TIMING.EXPLOSION_DURATION,
-        maxOrbDelay + ANIMATION_TIMING.ORB_MOVEMENT_DURATION
-      );
-
-      // Clear animations after completion
-      const timeout = setTimeout(() => {
-        setActiveAnimations({ explosions: [], orbs: [] });
-        onAnimationComplete?.();
-      }, totalDuration + 100);
-
-      return () => clearTimeout(timeout);
+    if (orbAnimations.length > 0) {
+      setActiveOrbs(orbAnimations);
+      setCompletedOrbs(new Set());
+    } else {
+      // Reset state when no orb animations
+      setActiveOrbs([]);
+      setCompletedOrbs(new Set());
     }
-  }, [placementAnimation, explosionAnimations, orbAnimations, onAnimationComplete]);
+  }, [orbAnimations]);
 
-  // Placement animation spring
-  const placementSpring = useSpring({
-    opacity: activeAnimations.placement ? 1 : 0,
-    scale: activeAnimations.placement ? 1 : 0,
-    config: { tension: 400, friction: 25 },
-    reset: !!activeAnimations.placement,
-  });
+  // Handle case where there are no animations at all
+  useEffect(() => {
+    // If no orb animations and no explosion animations, complete immediately
+    if (orbAnimations.length === 0 && explosionAnimations.length === 0 && onAnimationComplete) {
+      // Small delay for visual feedback
+      const timer = setTimeout(() => {
+        onAnimationComplete();
+      }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [orbAnimations.length, explosionAnimations.length, onAnimationComplete]);
 
-  // Explosion animations
-  const explosionSprings = useSprings(
-    activeAnimations.explosions.length,
-    activeAnimations.explosions.map((explosion, index) => ({
-      from: { scale: 0, opacity: 1 },
-      to: async (next: any) => {
-        // Wait for delay
-        await new Promise(resolve => setTimeout(resolve, explosion.delay));
-        // Expand
-        await next({ scale: 1.5, opacity: 0.8 });
-        // Fade out
-        await next({ scale: 2, opacity: 0 });
-      },
-      config: { tension: 300, friction: 20 },
-      reset: true,
-    }))
-  );
+  // Check if all animations are complete
+  useEffect(() => {
+    if (activeOrbs.length > 0 && completedOrbs.size === activeOrbs.length) {
+      // All orbs have completed their animation
+      setTimeout(() => {
+        setActiveOrbs([]);
+        setCompletedOrbs(new Set());
+        onAnimationComplete?.();
+      }, 100);
+    }
+  }, [activeOrbs.length, completedOrbs.size, onAnimationComplete]);
 
-  // Orb movement animations
-  const orbSprings = useSprings(
-    activeAnimations.orbs.length,
-    activeAnimations.orbs.map((orb, index) => {
-      const fromPos = getCellPosition(orb.fromRow, orb.fromCol, cellSize, gap);
-      const toPos = getCellPosition(orb.toRow, orb.toCol, cellSize, gap);
-      
-      return {
-        from: { 
-          x: fromPos.x + cellSize / 2, 
-          y: fromPos.y + cellSize / 2, 
-          scale: 1, 
-          opacity: 1 
-        },
-        to: async (next: any) => {
-          // Wait for delay
-          await new Promise(resolve => setTimeout(resolve, orb.delay));
-          // Move to target
-          await next({ 
-            x: toPos.x + cellSize / 2, 
-            y: toPos.y + cellSize / 2, 
-            scale: 0.8,
-            opacity: 0.9 
-          });
-          // Fade out on arrival
-          await next({ scale: 0, opacity: 0 });
-        },
-        config: { tension: 200, friction: 25 },
-        reset: true,
-      };
-    })
-  );
+  const handleOrbComplete = (orbId: string) => {
+    setCompletedOrbs(prev => new Set(prev).add(orbId));
+  };
 
+  // Note: We're not rendering explosion animations as a separate overlay anymore
+  // They're handled by the cell itself in AnimatedCell component
+  
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden">
-      {/* Placement animation */}
-      {activeAnimations.placement && (
-        <animated.div
-          className="absolute w-4 h-4 rounded-full shadow-lg z-20"
-          style={{
-            backgroundColor: activeAnimations.placement.color,
-            left: getCellPosition(activeAnimations.placement.row, activeAnimations.placement.col, cellSize, gap).x + cellSize / 2 - 8,
-            top: getCellPosition(activeAnimations.placement.row, activeAnimations.placement.col, cellSize, gap).y + cellSize / 2 - 8,
-            opacity: placementSpring.opacity,
-            transform: placementSpring.scale.to(s => `scale(${s})`),
-          }}
+      {/* Flying orbs */}
+      {activeOrbs.map((orb) => (
+        <FlyingOrb
+          key={orb.id}
+          animation={orb}
+          cellSize={cellSize}
+          gap={gap}
+          onComplete={() => handleOrbComplete(orb.id)}
         />
-      )}
-
-      {/* Explosion animations */}
-      {explosionSprings.map((spring, index) => {
-        const explosion = activeAnimations.explosions[index];
-        if (!explosion) return null;
-
-        const position = getCellPosition(explosion.row, explosion.col, cellSize, gap);
-        
-        return (
-          <animated.div
-            key={explosion.id}
-            className="absolute rounded-full z-10"
-            style={{
-              left: position.x + cellSize / 2 - 20,
-              top: position.y + cellSize / 2 - 20,
-              width: 40,
-              height: 40,
-              backgroundColor: explosion.color,
-              opacity: spring.opacity,
-              transform: spring.scale.to(s => `scale(${s})`),
-            }}
-          />
-        );
-      })}
-
-      {/* Orb movement animations */}
-      {orbSprings.map((spring, index) => {
-        const orb = activeAnimations.orbs[index];
-        if (!orb) return null;
-
-        return (
-          <animated.div
-            key={orb.id}
-            className="absolute w-3 h-3 rounded-full shadow-md z-15"
-            style={{
-              backgroundColor: orb.color,
-              left: spring.x.to(x => x - 6),
-              top: spring.y.to(y => y - 6),
-              opacity: spring.opacity,
-              transform: spring.scale.to(s => `scale(${s})`),
-            }}
-          />
-        );
-      })}
+      ))}
     </div>
   );
 }

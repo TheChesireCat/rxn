@@ -12,6 +12,7 @@ interface CellProps {
   currentPlayerId: string;
   onCellClick: (row: number, col: number) => void;
   disabled?: boolean;
+  cellSize?: number; // New prop for dynamic sizing
 }
 
 export function Cell({
@@ -22,6 +23,7 @@ export function Cell({
   currentPlayerId,
   onCellClick,
   disabled = false,
+  cellSize = 60, // Default fallback size
 }: CellProps) {
   const canClick = !disabled && isCurrentPlayerTurn && (!cell.ownerId || cell.ownerId === currentPlayerId);
   
@@ -49,21 +51,44 @@ export function Cell({
   const isNearCritical = cell.orbs === cell.criticalMass - 1;
   const isCritical = cell.orbs >= cell.criticalMass;
 
+  // Calculate orb sizes relative to cell size
+  const calculateOrbSizes = () => {
+    // Base orb size as percentage of cell size
+    const baseOrbRatio = 0.15; // 15% of cell size for individual orbs
+    const largeOrbRatio = 0.2;  // 20% of cell size for count display orb
+    
+    const individualOrbSize = Math.max(6, Math.floor(cellSize * baseOrbRatio)); // Min 6px
+    const countOrbSize = Math.max(8, Math.floor(cellSize * largeOrbRatio));      // Min 8px
+    const fontSize = Math.max(10, Math.floor(cellSize * 0.25));                  // Min 10px for text
+    const criticalFontSize = Math.max(8, Math.floor(cellSize * 0.2));           // Min 8px for critical mass
+    
+    return {
+      individual: individualOrbSize,
+      count: countOrbSize,
+      fontSize,
+      criticalFontSize
+    };
+  };
+  
+  const orbSizes = calculateOrbSizes();
+
   return (
     <button
       onClick={handleClick}
       disabled={!canClick}
       className={`
-        relative aspect-square w-full min-h-12 sm:min-h-16 md:min-h-20
+        relative aspect-square
         border-2 border-gray-300 dark:border-gray-600
         transition-all duration-200 ease-in-out
-        ${canClick 
-          ? 'hover:border-blue-400 hover:shadow-md cursor-pointer' 
-          : 'cursor-not-allowed opacity-75'
+        ${
+          canClick
+            ? 'hover:border-blue-400 hover:shadow-md cursor-pointer'
+            : 'cursor-not-allowed opacity-75'
         }
-        ${isCritical 
-          ? 'animate-pulse border-red-500 bg-red-50 dark:bg-red-900/20' 
-          : isNearCritical 
+        ${
+          isCritical
+            ? 'animate-pulse border-red-500 bg-red-50 dark:bg-red-900/20'
+            : isNearCritical
             ? 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20'
             : 'bg-white dark:bg-gray-800'
         }
@@ -72,10 +97,10 @@ export function Cell({
         focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
       `}
       style={{
+        width: `${cellSize}px`,
+        height: `${cellSize}px`,
         borderColor: cell.ownerId ? playerColor : undefined,
-        backgroundColor: cell.ownerId 
-          ? `${playerColor}15` 
-          : undefined,
+        backgroundColor: cell.ownerId ? `${playerColor}15` : undefined,
       }}
       aria-label={`Cell at row ${row + 1}, column ${col + 1}. ${cell.orbs} orbs. ${
         cell.ownerId ? `Owned by player` : 'Empty'
@@ -89,20 +114,31 @@ export function Cell({
             Array.from({ length: cell.orbs }).map((_, index) => (
               <div
                 key={index}
-                className="w-2 h-2 sm:w-3 sm:h-3 md:w-4 md:h-4 rounded-full shadow-sm"
-                style={{ backgroundColor: playerColor }}
+                className="rounded-full shadow-sm"
+                style={{ 
+                  backgroundColor: playerColor,
+                  width: `${orbSizes.individual}px`,
+                  height: `${orbSizes.individual}px`
+                }}
               />
             ))
           ) : (
             /* For more than 4 orbs, show count */
             <div className="flex flex-col items-center">
               <div
-                className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 rounded-full shadow-sm"
-                style={{ backgroundColor: playerColor }}
+                className="rounded-full shadow-sm"
+                style={{ 
+                  backgroundColor: playerColor,
+                  width: `${orbSizes.count}px`,
+                  height: `${orbSizes.count}px`
+                }}
               />
-              <span 
-                className="text-xs sm:text-sm font-bold mt-1"
-                style={{ color: playerColor }}
+              <span
+                className="font-bold mt-1"
+                style={{ 
+                  color: playerColor,
+                  fontSize: `${orbSizes.fontSize}px`
+                }}
               >
                 {cell.orbs}
               </span>
@@ -113,7 +149,10 @@ export function Cell({
 
       {/* Critical mass indicator */}
       {cell.orbs === 0 && (
-        <div className="text-xs text-gray-400 dark:text-gray-500 font-mono">
+        <div 
+          className="text-gray-400 dark:text-gray-500 font-mono"
+          style={{ fontSize: `${orbSizes.criticalFontSize}px` }}
+        >
           {cell.criticalMass}
         </div>
       )}

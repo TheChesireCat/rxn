@@ -41,15 +41,34 @@ export function ChatPanel({
   });
 
   // Query chat messages for this room
-  const { data, isLoading: messagesLoading } = db.useQuery({
+  const { data, isLoading: messagesLoading, error } = db.useQuery({
     chatMessages: {
       $: { 
-        where: { roomId }
+        where: { roomId: roomId },  // Explicit roomId binding
+        order: { createdAt: 'asc' }
       }
     }
   });
 
-  const messages = (data?.chatMessages || []).sort((a, b) => a.createdAt - b.createdAt);
+  // Extract messages from query result
+  const messages: ChatMessage[] = data?.chatMessages || [];
+  
+  // Debug logging
+  useEffect(() => {
+    if (data) {
+      console.log('Chat Messages Query Result:', {
+        roomId,
+        queryData: data,
+        messagesFound: data.chatMessages?.length || 0,
+        firstMessage: data.chatMessages?.[0],
+      });
+    }
+  }, [data, roomId]);
+  
+  // Log any query errors
+  if (error) {
+    console.error('Error querying chat messages:', error);
+  }
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -125,6 +144,34 @@ export function ChatPanel({
       <div className="flex items-center justify-between p-3 border-b border-gray-200 dark:border-gray-700">
         <h3 className="font-semibold text-gray-900 dark:text-white">Chat</h3>
         <div className="flex items-center gap-2">
+          {/* Debug button - remove in production */}
+          {process.env.NODE_ENV === 'development' && (
+            <button
+              onClick={async () => {
+                console.log('Testing message creation...');
+                const testMsg = `Debug test at ${new Date().toLocaleTimeString()}`;
+                try {
+                  const response = await fetch('/api/chat/send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      roomId,
+                      userId: currentUserId,
+                      text: testMsg,
+                    }),
+                  });
+                  const result = await response.json();
+                  console.log('Debug message result:', result);
+                } catch (err) {
+                  console.error('Debug message error:', err);
+                }
+              }}
+              className="px-2 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700"
+              title="Send debug message"
+            >
+              Debug
+            </button>
+          )}
           <ReactionPicker
             onReactionSelect={(emoji) => sendReaction(emoji)}
             disabled={isReactionLoading}

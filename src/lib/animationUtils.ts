@@ -206,6 +206,7 @@ export function getPlayerColor(playerId: string, playerColors: readonly string[]
 
 /**
  * Calculate cell position in pixels for animations
+ * Now that AnimationLayer is inside the grid, cells start at (0,0)
  */
 export function getCellPosition(
   row: number,
@@ -214,7 +215,7 @@ export function getCellPosition(
   gap: number
 ): { x: number; y: number } {
   return {
-    x: col * (cellSize + gap) + gap,
-    y: row * (cellSize + gap) + gap,
+    x: col * (cellSize + gap),
+    y: row * (cellSize + gap),
   };
 }

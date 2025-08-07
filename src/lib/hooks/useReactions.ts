@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { db } from '@/lib/instant';
 import type { Reaction } from '@/components/ReactionOverlay';
 
 interface UseReactionsProps {
@@ -11,53 +12,79 @@ interface UseReactionsProps {
 
 interface UseReactionsReturn {
   reactions: Reaction[];
-  sendReaction: (emoji: string, x?: number, y?: number) => void;
+  sendReaction: (emoji: string, x?: number, y?: number) => Promise<void>;
   isLoading: boolean;
   error: string | null;
 }
 
 /**
- * Hook for managing emoji reactions in the game room.
- * 
- * NOTE: This is a simplified implementation that stores reactions locally.
- * The full real-time implementation using InstantDB topics is pending.
- * This prevents the app from crashing while the feature is being developed.
+ * Hook for managing emoji reactions in the game room with real-time synchronization.
+ * Note: The ReactionOverlay component handles the display duration (3 seconds) for reactions.
  */
 export function useReactions({ 
   roomId, 
   currentUserId, 
   currentUserName 
 }: UseReactionsProps): UseReactionsReturn {
-  const [reactions, setReactions] = useState<Reaction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Send a reaction (local only for now)
-  const sendReaction = useCallback((emoji: string, x?: number, y?: number) => {
+  // Query reactions for this room
+  // We'll let the ReactionOverlay component handle filtering and lifecycle
+  const { data: reactionData, isLoading: queryLoading } = db.useQuery({
+    reactions: {
+      $: {
+        where: {
+          roomId: roomId
+        }
+      }
+    }
+  });
+
+  // Convert database reactions to component format
+  // Only include recent reactions (last 15 seconds to be safe)
+  const reactions: Reaction[] = [];
+  
+  if (reactionData?.reactions) {
+    const now = Date.now();
+    const cutoff = now - 15000; // 15 seconds ago (generous buffer)
+    
+    reactionData.reactions.forEach(reaction => {
+      if (reaction.createdAt > cutoff) {
+        reactions.push({
+          id: reaction.id,
+          emoji: reaction.emoji,
+          senderId: reaction.userId,
+          senderName: reaction.userName,
+          timestamp: reaction.createdAt,
+          x: reaction.x,
+          y: reaction.y,
+        });
+      }
+    });
+  }
+
+  // Send a reaction
+  const sendReaction = useCallback(async (emoji: string, x?: number, y?: number) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const reaction: Reaction = {
-        id: `${currentUserId}-${Date.now()}`,
-        emoji,
-        senderId: currentUserId,
-        senderName: currentUserName,
-        timestamp: Date.now(),
-        x,
-        y,
-      };
+      // Add reaction to database
+      await db.transact(
+        db.tx.reactions[crypto.randomUUID()].update({
+          roomId,
+          userId: currentUserId,
+          userName: currentUserName,
+          emoji,
+          x: x ?? Math.random() * 80 + 10, // 10-90% if not specified
+          y: y ?? Math.random() * 80 + 10, // 10-90% if not specified
+          createdAt: Date.now(),
+        })
+      );
 
-      // Add reaction locally
-      setReactions(prev => [...prev, reaction]);
-
-      // Auto-remove reaction after 3 seconds
-      setTimeout(() => {
-        setReactions(prev => prev.filter(r => r.id !== reaction.id));
-      }, 3000);
-
-      // TODO: Implement real-time sync with InstantDB topics when API is finalized
-      console.log('Reaction sent (local only):', reaction);
+      // Note: Real-time updates will happen automatically via InstantDB
+      console.log('Reaction sent:', { emoji, roomId });
       
     } catch (err) {
       console.error('Error sending reaction:', err);
@@ -65,26 +92,12 @@ export function useReactions({
     } finally {
       setIsLoading(false);
     }
-  }, [currentUserId, currentUserName]);
+  }, [roomId, currentUserId, currentUserName]);
 
   return {
     reactions,
     sendReaction,
-    isLoading,
+    isLoading: isLoading || queryLoading,
     error,
   };
 }
-
-/**
- * Future implementation notes:
- * 
- * InstantDB topics API for real-time reactions:
- * 1. Use room.useTopics() or similar API to get topic functions
- * 2. Subscribe to 'reactions' topic for receiving reactions from other players
- * 3. Publish to 'reactions' topic when sending a reaction
- * 
- * The exact API depends on InstantDB's topics implementation:
- * - Might use room.subscribeTopics() and room.publishTopic()
- * - Or might use a hook pattern like useTopics() that returns functions
- * - Check InstantDB documentation for the latest API
- */

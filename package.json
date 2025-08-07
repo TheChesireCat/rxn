@@ -10,6 +10,9 @@
     "test": "vitest",
     "test:run": "vitest run",
     "instant:test": "node test-instant.js",
+    "test:chat": "node test-chat.mjs",
+    "chat:init": "node init-chat.mjs",
+    "instant:verify": "node verify-schema.mjs",
     "instant:push": "npx @instantdb/cli push",
     "instant:setup": "node setup-instant.js",
     "instant:login": "npx @instantdb/cli login",
@@ -21,6 +24,7 @@
     "@react-spring/web": "^10.0.1",
     "@vercel/analytics": "^1.5.0",
     "dotenv": "^16.6.1",
+    "lucide-react": "^0.536.0",
     "next": "15.4.5",
     "react": "19.1.0",
     "react-dom": "19.1.0"

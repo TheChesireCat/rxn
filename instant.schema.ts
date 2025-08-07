@@ -37,6 +37,17 @@ const _schema = i.schema({
       text: i.string(),
       createdAt: i.number(),
     }),
+    
+    // Emoji reactions for games
+    reactions: i.entity({
+      roomId: i.string(),
+      userId: i.string(),
+      userName: i.string(),
+      emoji: i.string(),
+      x: i.number().optional(), // Position on screen (percentage)
+      y: i.number().optional(), // Position on screen (percentage)
+      createdAt: i.number(),
+    }),
   },
   
   links: {
@@ -44,6 +55,12 @@ const _schema = i.schema({
     roomMessages: {
       forward: { on: "rooms", has: "many", label: "messages" },
       reverse: { on: "chatMessages", has: "one", label: "room" }
+    },
+    
+    // Link reactions to rooms
+    roomReactions: {
+      forward: { on: "rooms", has: "many", label: "reactions" },
+      reverse: { on: "reactions", has: "one", label: "room" }
     }
   },
 });

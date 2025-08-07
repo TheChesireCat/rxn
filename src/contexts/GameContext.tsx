@@ -73,12 +73,10 @@ export function GameProvider({ children, roomId }: GameProviderProps) {
   const currentUser = SessionManager.getCurrentUser();
 
   // Query room data with real-time updates
+  // Note: We're NOT querying messages here as they're handled separately in GameRoom
   const { data: roomData, isLoading: queryLoading, error: queryError } = db.useQuery({
     rooms: {
-      $: { where: { id: roomId } },
-      messages: {
-        $: { order: { createdAt: 'asc' } }
-      }
+      $: { where: { id: roomId } }
     }
   });
 

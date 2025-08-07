@@ -1,0 +1,66 @@
+# RXN Project Context Summary
+
+## Project Identity
+**rxn** = "Live Chain Reaction" - Real-time multiplayer strategy game. Players place orbs on grid → trigger chain reactions → capture opponent cells → last player wins.
+
+## File System Structure
+```
+/projects/rxn/
+├── .kiro/
+│   ├── specs/live-chain-reaction/          # Formal specifications
+│   │   ├── requirements.md                 # 11 EARS format requirements  
+│   │   ├── design.md                      # Architecture & components
+│   │   └── tasks.md                       # 21 implementation tasks (17✅ 4🚧)
+│   └── bkp_prompts/prompt_files/          # Early development docs
+│       ├── Spec_Prompt.txt                # Kiro workflow guide
+│       ├── instant.txt                    # InstantDB integration guide
+│       ├── guide.txt                      # Game loop algorithm
+│       └── supabase_guide.txt             # Alt database option
+├── src/
+│   ├── app/api/                          # Server-side routes (use adminDb)
+│   ├── components/                       # React components (use db)
+│   ├── lib/
+│   │   ├── instant.ts                    # Client-side InstantDB
+│   │   ├── admin.ts                      # Server-side InstantDB
+│   │   └── gameLogic.ts                  # Core game mechanics
+│   └── types/game.ts                     # TypeScript definitions
+├── instant.schema.ts                     # Database schema
+└── instant.perms.ts                      # Access rules
+```
+
+## Current Status: 85% Complete
+**✅ Implemented**: Core game logic, real-time sync, auth, UI, room management, spectator mode, chat, timers, undo
+**🚧 Remaining**: Emoji reactions, player stats, error handling, E2E tests
+
+## Technical Stack
+- **Frontend**: Next.js 15, React 19, TypeScript, TailwindCSS v4
+- **Database**: InstantDB (real-time), server-authoritative architecture
+- **Animation**: React Spring for orb movements
+- **Testing**: Vitest
+
+## Key Concepts
+
+### Game Mechanics
+- **Critical Mass**: corners=2, edges=3, center=4 orbs
+- **Chain Reactions**: Explosions spread orbs to adjacent cells, capturing them
+- **Elimination**: Player eliminated when orb count = 0 (after first move)
+- **Victory**: Last player with orbs wins
+
+### Architecture Pattern
+- **Server Authority**: All game logic in API routes using `adminDb`
+- **Client Rendering**: React components use `db` for real-time updates
+- **Real-time Sync**: InstantDB handles state synchronization
+- **Atomic Transactions**: Prevent race conditions
+
+### Specs Workflow
+1. **Requirements** → EARS format acceptance criteria
+2. **Design** → Architecture, components, data models  
+3. **Tasks** → Implementation checklist with requirement tracing
+
+## Recent Issue: Fixed InstantDB Client/Admin Separation
+- **Problem**: Using React client (`@instantdb/react`) in server API routes
+- **Solution**: Created admin client (`@instantdb/admin`) for server-side operations
+- **Pattern**: Client code uses `db`, server code uses `adminDb`
+
+## Development Context
+Project follows spec-driven development via Kiro workflow. Well-documented with comprehensive requirements, design docs, and nearly complete implementation. Ready for final feature completion and testing.

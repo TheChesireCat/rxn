@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
-import { useSpring, animated, useSpringValue, config } from '@react-spring/web';
+import React, { useEffect, useState } from 'react';
+import { useSpring, useTransition, animated, config } from '@react-spring/web';
 import { Cell as CellType, Player } from '@/types/game';
-import { ANIMATION_TIMING, SPRING_CONFIG } from '@/lib/animationUtils';
 
 interface AnimatedCellProps {
   cell: CellType;
@@ -16,7 +15,30 @@ interface AnimatedCellProps {
   disabled?: boolean;
   isAnimating?: boolean;
   shouldPulse?: boolean;
+  isExploding?: boolean;
+  cellSize?: number; // New prop for dynamic sizing
 }
+
+// Orb position configurations for different counts
+const ORB_POSITIONS = [
+  [], // 0 orbs
+  [{ x: 50, y: 50 }], // 1 orb - center
+  [
+    { x: 35, y: 35 },
+    { x: 65, y: 65 },
+  ], // 2 orbs - diagonal
+  [
+    { x: 50, y: 25 },
+    { x: 30, y: 60 },
+    { x: 70, y: 60 },
+  ], // 3 orbs - triangle
+  [
+    { x: 30, y: 30 },
+    { x: 70, y: 30 },
+    { x: 30, y: 70 },
+    { x: 70, y: 70 },
+  ], // 4+ orbs - square
+];
 
 export function AnimatedCell({
   cell,
@@ -29,118 +51,116 @@ export function AnimatedCell({
   disabled = false,
   isAnimating = false,
   shouldPulse = false,
+  isExploding = false,
+  cellSize = 60, // Default fallback size
 }: AnimatedCellProps) {
   const canClick = !disabled && !isAnimating && isCurrentPlayerTurn && (!cell.ownerId || cell.ownerId === currentPlayerId);
-  const prevOrbCount = useRef(cell.orbs);
+  const [localExploding, setLocalExploding] = useState(false);
   
   // Get the actual player color from the players array
   const getPlayerColor = (ownerId: string | undefined): string => {
-    if (!ownerId) return '#999999'; // Default gray for empty cells
+    if (!ownerId) return '#999999';
     const player = players.find(p => p.id === ownerId);
-    return player?.color || '#999999'; // Fallback to gray if player not found
+    return player?.color || '#999999';
   };
 
   const playerColor = getPlayerColor(cell.ownerId);
 
-  // Ultra-fast orb count animation
-  const orbCountSpring = useSpringValue(cell.orbs, {
-    config: SPRING_CONFIG.placement,
-  });
-
-  // Snappy background animation for feedback
-  const [backgroundSpring, backgroundApi] = useSpring(() => ({
-    scale: 1,
-    opacity: 0.15,
-    config: SPRING_CONFIG.flash,
-  }));
-
-  // Animation for critical mass pulsing with more drama
-  const [pulseSpring, pulseApi] = useSpring(() => ({
-    scale: 1,
-    opacity: 1,
-    glow: 0,
-    config: SPRING_CONFIG.pulse,
-  }));
-
-  // Animation for ultra-responsive hover
-  const [hoverSpring, hoverApi] = useSpring(() => ({
-    scale: 1,
-    borderWidth: 2,
-    shadow: 0,
-    config: SPRING_CONFIG.hover,
-  }));
-
-  // Trigger explosive background flash when orbs are added
-  useEffect(() => {
-    if (cell.orbs > prevOrbCount.current && cell.orbs > 0) {
-      backgroundApi.start({
-        from: { scale: 1, opacity: 0.15 },
-        to: async (next) => {
-          await next({ scale: 1.12, opacity: 0.45 }); // More dramatic flash
-          await next({ scale: 1, opacity: 0.15 });
-        },
-        config: SPRING_CONFIG.explosion,
-      });
-    }
-    prevOrbCount.current = cell.orbs;
-  }, [cell.orbs, backgroundApi]);
-
-  // Handle critical mass pulsing with more intensity
-  useEffect(() => {
-    if (shouldPulse && cell.orbs >= cell.criticalMass) {
-      const pulse = () => {
-        pulseApi.start({
-          from: { scale: 1, opacity: 1, glow: 0 },
-          to: async (next) => {
-            await next({ scale: 1.05, opacity: 0.8, glow: 20 }); // More dramatic pulse
-            await next({ scale: 1, opacity: 1, glow: 0 });
-          },
-          config: SPRING_CONFIG.wobbly,
-        });
-      };
-      
-      pulse();
-      const interval = setInterval(pulse, ANIMATION_TIMING.PULSE_DURATION * 4);
-      return () => clearInterval(interval);
-    } else {
-      pulseApi.start({ scale: 1, opacity: 1, glow: 0 });
-    }
-  }, [shouldPulse, cell.orbs, cell.criticalMass, pulseApi]);
-
-  // Update orb count animation
-  useEffect(() => {
-    orbCountSpring.start(cell.orbs);
-  }, [cell.orbs, orbCountSpring]);
-
-  const handleClick = () => {
-    if (canClick) {
-      // Add a little feedback animation on click
-      hoverApi.start({
-        from: { scale: 1.02 },
-        to: { scale: 1 },
-        config: { tension: 300, friction: 10 },
-      });
-      onCellClick(row, col);
-    }
+  // Calculate orb sizes relative to cell size
+  const calculateOrbSizes = () => {
+    const orbRatio = 0.3; // 30% of cell size for animated orbs (bigger than static ones)
+    const fontSize = Math.max(12, Math.floor(cellSize * 0.35)); // 35% for text
+    const criticalFontSize = Math.max(8, Math.floor(cellSize * 0.15)); // 15% for critical indicator
+    
+    const orbSize = Math.max(12, Math.floor(cellSize * orbRatio)); // Min 12px for animations
+    
+    return {
+      orb: orbSize,
+      fontSize,
+      criticalFontSize
+    };
   };
+  
+  const orbSizes = calculateOrbSizes();
 
+  // Cell spring for hover effects
+  const [cellSpring, cellApi] = useSpring(() => ({
+    scale: 1,
+    borderColor: '#374151',
+    config: config.gentle,
+  }));
+
+  // Explosion spring for background effect
+  const [explosionSpring, explosionApi] = useSpring(() => ({
+    scale: 0,
+    opacity: 0,
+    config: config.gentle,
+  }));
+
+  // Handle explosion animation
+  useEffect(() => {
+    if (isExploding || (cell.orbs >= cell.criticalMass && localExploding)) {
+      (async () => {
+        // Explosion effect
+        await explosionApi.start({ 
+          scale: 1.5, 
+          opacity: 0.6,
+          config: { tension: 300, friction: 10 } 
+        });
+        await explosionApi.start({ 
+          scale: 2, 
+          opacity: 0,
+          config: { tension: 280, friction: 20 } 
+        });
+        setLocalExploding(false);
+      })();
+    } else {
+      explosionApi.start({ scale: 0, opacity: 0 });
+    }
+  }, [isExploding, localExploding, cell.orbs, cell.criticalMass, explosionApi]);
+
+  // Detect when cell reaches critical mass
+  useEffect(() => {
+    if (cell.orbs >= cell.criticalMass && cell.orbs > 0) {
+      setLocalExploding(true);
+    }
+  }, [cell.orbs, cell.criticalMass]);
+
+  // Hover effects
   const handleMouseEnter = () => {
     if (canClick) {
-      hoverApi.start({
-        scale: 1.03, // More noticeable hover
-        borderWidth: 4,
-        shadow: 15,
+      cellApi.start({
+        scale: 1.05,
+        borderColor: playerColor || currentPlayerId ? getPlayerColor(currentPlayerId) : '#374151',
       });
     }
   };
 
   const handleMouseLeave = () => {
-    hoverApi.start({
+    cellApi.start({
       scale: 1,
-      borderWidth: 2,
-      shadow: 0,
+      borderColor: '#374151',
     });
   };
+
+  const handleClick = () => {
+    if (canClick) {
+      onCellClick(row, col);
+    }
+  };
+
+  // Orb transitions with smooth entrance/exit
+  const orbPositions = ORB_POSITIONS[Math.min(cell.orbs, ORB_POSITIONS.length - 1)];
+  const orbTransitions = useTransition(
+    cell.orbs > 0 ? orbPositions.slice(0, Math.min(cell.orbs, 4)).map((pos, i) => ({ ...pos, key: i })) : [],
+    {
+      keys: (item) => item.key,
+      from: { scale: 0, opacity: 0 },
+      enter: { scale: 1, opacity: 1 },
+      leave: { scale: 0, opacity: 0 },
+      config: config.wobbly,
+    }
+  );
 
   // Determine if cell is near critical mass for visual warning
   const isNearCritical = cell.orbs === cell.criticalMass - 1;
@@ -152,168 +172,101 @@ export function AnimatedCell({
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       disabled={!canClick}
-      className={`
-        relative w-full h-full
-        border-2
-        border-gray-300 dark:border-gray-600
-        transition-none
-        ${canClick 
-          ? 'cursor-pointer' 
-          : 'cursor-not-allowed opacity-75'
-        }
-        ${isCritical 
-          ? 'border-red-500' 
-          : isNearCritical 
-            ? 'border-yellow-500'
-            : ''
-        }
-        rounded-lg
-        flex items-center justify-center
-        focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1
-        overflow-hidden
-        bg-white dark:bg-gray-800
-      `}
+      className="relative block w-full h-full rounded-lg transition-none focus:outline-none focus:ring-2 focus:ring-blue-500 overflow-hidden p-0 m-0 bg-gray-900/50 dark:bg-gray-800/50"
       style={{
-        transform: hoverSpring.scale.to(s => `scale(${s})`),
-        borderWidth: hoverSpring.borderWidth,
-        borderColor: cell.ownerId ? playerColor : undefined,
-        backgroundColor: cell.ownerId 
-          ? `${playerColor}15` 
-          : '#ffffff',
-        boxShadow: hoverSpring.shadow.to(s => 
-          canClick ? `0 0 ${s}px ${playerColor}40` : 'none'
-        ),
+        borderWidth: 2,
+        borderStyle: 'solid',
+        borderColor: cellSpring.borderColor,
+        cursor: canClick ? 'pointer' : 'not-allowed',
+        opacity: canClick ? 1 : 0.7,
+        boxShadow: isNearCritical ? `0 0 20px ${playerColor}40` : 'none',
+        transform: cellSpring.scale.to(s => `scale(${s})`),
+        transformOrigin: 'center center',
       }}
       aria-label={`Cell at row ${row + 1}, column ${col + 1}. ${cell.orbs} orbs. ${
         cell.ownerId ? `Owned by player` : 'Empty'
       }. Critical mass: ${cell.criticalMass}`}
     >
-      {/* Animated background for orb placement feedback */}
+      {/* Explosion effect overlay */}
       <animated.div
-        className="absolute inset-0 rounded"
+        className="absolute inset-0 rounded-lg pointer-events-none"
         style={{
-          backgroundColor: playerColor,
-          transform: backgroundSpring.scale.to(s => `scale(${s})`),
-          opacity: backgroundSpring.opacity,
+          background: playerColor,
+          transform: explosionSpring.scale.to(s => `scale(${s})`),
+          opacity: explosionSpring.opacity,
+          transformOrigin: 'center center',
         }}
       />
-
-      {/* Pulse overlay for critical cells with glow */}
-      {(isCritical || shouldPulse) && (
-        <animated.div
-          className="absolute inset-0 rounded border-2 border-red-500"
+      {/* Near-critical indicator - pulsing dot */}
+      {isNearCritical && !isCritical && (
+        <div
+          className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500"
           style={{
-            transform: pulseSpring.scale.to(s => `scale(${s})`),
-            opacity: pulseSpring.opacity,
-            boxShadow: pulseSpring.glow.to(g => `0 0 ${g}px ${playerColor}`),
-            animation: isCritical ? 'critical-pulse 0.8s infinite ease-in-out' : 'none',
+            animation: 'pulse 0.8s infinite ease-in-out',
           }}
         />
       )}
 
-      {/* Enhanced orb display with better animations */}
-      {cell.orbs > 0 && (
-        <div className="absolute inset-0 flex items-center justify-center p-2 pointer-events-none">
-          {/* For 1-4 orbs, show individual orbs with bouncy animations */}
-          {cell.orbs === 1 && (
+      {/* Orbs with smooth transitions */}
+      <div className="absolute inset-0 pointer-events-none">
+        {orbTransitions((style, item) => 
+          item && (
             <animated.div
-              className="w-5 h-5 rounded-full shadow-lg orb-float"
-              style={{ 
-                backgroundColor: playerColor,
-                boxShadow: `0 0 15px ${playerColor}80, 0 2px 8px rgba(0,0,0,0.2)`,
-                transform: orbCountSpring.to(count => `scale(${Math.min(count, 1)})`),
-                filter: 'brightness(1.3)',
+              key={item.key}
+              className="absolute rounded-full"
+              style={{
+                width: orbSizes.orb,
+                height: orbSizes.orb,
+                background: playerColor,
+                left: `${item.x}%`,
+                top: `${item.y}%`,
+                transform: style.scale.to(s => `translate(-50%, -50%) scale(${s})`),
+                opacity: style.opacity,
+                boxShadow: `0 0 15px ${playerColor}80`,
+                filter: 'brightness(1.2)',
               }}
             />
-          )}
-          {cell.orbs === 2 && (
-            <div className="flex gap-2">
-              {[0, 1].map((index) => (
-                <animated.div
-                  key={index}
-                  className="w-4 h-4 rounded-full shadow-md orb-float"
-                  style={{ 
-                    backgroundColor: playerColor,
-                    boxShadow: `0 0 10px ${playerColor}60, 0 2px 6px rgba(0,0,0,0.2)`,
-                    transform: orbCountSpring.to(count => {
-                      const shouldShow = index < Math.floor(count);
-                      return shouldShow ? 'scale(1)' : 'scale(0)';
-                    }),
-                    filter: 'brightness(1.2)',
-                    animationDelay: `${index * 0.1}s`,
-                  }}
-                />
-              ))}
-            </div>
-          )}
-          {cell.orbs === 3 && (
-            <div className="relative w-full h-full">
-              {[
-                { top: '25%', left: '50%', transform: 'translate(-50%, -50%)' },
-                { top: '55%', left: '35%', transform: 'translate(-50%, -50%)' },
-                { top: '55%', left: '65%', transform: 'translate(-50%, -50%)' },
-              ].map((pos, index) => (
-                <animated.div
-                  key={index}
-                  className="absolute w-3.5 h-3.5 rounded-full shadow-md orb-float"
-                  style={{ 
-                    ...pos,
-                    backgroundColor: playerColor,
-                    boxShadow: `0 0 10px ${playerColor}60, 0 2px 5px rgba(0,0,0,0.2)`,
-                    transform: orbCountSpring.to(count => {
-                      const shouldShow = index < Math.floor(count);
-                      return `${pos.transform} scale(${shouldShow ? 1 : 0})`;
-                    }),
-                    filter: 'brightness(1.2)',
-                    animationDelay: `${index * 0.08}s`,
-                  }}
-                />
-              ))}
-            </div>
-          )}
-          {cell.orbs >= 4 && (
-            /* For 4+ orbs, show dramatic count display */
-            <div className="flex flex-col items-center">
-              <animated.div
-                className="w-6 h-6 rounded-full shadow-lg animate-pulse"
-                style={{ 
-                  backgroundColor: playerColor,
-                  boxShadow: `0 0 20px ${playerColor}80, 0 3px 10px rgba(0,0,0,0.3)`,
-                  transform: orbCountSpring.to(count => `scale(${Math.min(count / cell.orbs * 1.2, 1.2)})`),
-                  filter: 'brightness(1.4)',
-                }}
-              />
-              <animated.span 
-                className="text-sm font-bold mt-1"
-                style={{ 
-                  color: playerColor,
-                  textShadow: `0 0 8px ${playerColor}60`,
-                  transform: orbCountSpring.to(count => `scale(${Math.min(count / cell.orbs * 1.1, 1.1)})`),
-                }}
-              >
-                {orbCountSpring.to(count => Math.floor(count))}
-              </animated.span>
-            </div>
-          )}
-        </div>
-      )}
+          )
+        )}
+        
+        {/* Show count for 5+ orbs */}
+        {cell.orbs > 4 && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span
+              className="font-bold"
+              style={{
+                color: playerColor,
+                fontSize: `${orbSizes.fontSize}px`,
+                textShadow: `0 0 10px ${playerColor}60`,
+              }}
+            >
+              {cell.orbs}
+            </span>
+          </div>
+        )}
+      </div>
 
-      {/* Critical mass indicator with better visibility */}
-      <div className="absolute bottom-1 right-1 text-[10px] text-gray-500 dark:text-gray-400 font-mono opacity-70 pointer-events-none">
+      {/* Critical mass indicator */}
+      <div 
+        className="absolute bottom-1 right-1 text-gray-500 dark:text-gray-400 font-mono opacity-60 pointer-events-none"
+        style={{ fontSize: `${orbSizes.criticalFontSize}px` }}
+      >
         {cell.orbs}/{cell.criticalMass}
       </div>
 
-      {/* Enhanced visual feedback for clickable state */}
-      {canClick && (
-        <animated.div 
-          className="absolute inset-0 rounded border-2 border-transparent pointer-events-none"
-          style={{
-            borderColor: hoverSpring.scale.to(s => 
-              s > 1.01 ? `${playerColor}50` : 'transparent'
-            ),
-          }}
-        />
-      )}
+      {/* Pulse animation styles */}
+      <style jsx>{`
+        @keyframes pulse {
+          0%, 100% {
+            transform: scale(1);
+            opacity: 1;
+          }
+          50% {
+            transform: scale(1.3);
+            opacity: 0.6;
+          }
+        }
+      `}</style>
     </animated.button>
   );
 }

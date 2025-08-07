@@ -40,7 +40,7 @@ export function GameBoard({
     explosions: ExplosionAnimation[];
     orbs: OrbAnimation[];
   }>({ explosions: [], orbs: [] });
-  const [, forceUpdate] = useState({});
+  const [explodingCells, setExplodingCells] = useState<Set<string>>(new Set());
   
   const previousGameState = useRef<GameState | null>(null);
   const boardRef = useRef<HTMLDivElement>(null);
@@ -62,13 +62,9 @@ export function GameBoard({
     currentUserName,
   });
 
-  // Get player color for current user
-  const getPlayerColor = (playerId: string): string => {
-    let hash = 0;
-    for (let i = 0; i < playerId.length; i++) {
-      hash = ((hash << 5) - hash + playerId.charCodeAt(i)) & 0xffffffff;
-    }
-    return PLAYER_COLORS[Math.abs(hash) % PLAYER_COLORS.length];
+  // Get player by ID
+  const getPlayer = (playerId: string) => {
+    return displayState.players.find(p => p.id === playerId);
   };
 
   // Reset optimistic state when real state catches up
@@ -78,16 +74,6 @@ export function GameBoard({
       pendingMove.current = null;
     }
   }, [gameState.moveCount, optimisticGameState]);
-
-  // Handle window resize
-  useEffect(() => {
-    const handleResize = () => {
-      forceUpdate({});
-    };
-    
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   // Detect game state changes and trigger animations
   useEffect(() => {
@@ -99,7 +85,7 @@ export function GameBoard({
       const oldGrid = previousGameState.current.grid;
       const newGrid = gameState.grid;
       
-      // Find the cell that was clicked (has more orbs than before)
+      // Find the cell that was clicked
       let moveRow = -1;
       let moveCol = -1;
       
@@ -108,7 +94,6 @@ export function GameBoard({
           const oldCell = oldGrid[row][col];
           const newCell = newGrid[row][col];
           
-          // Check if this cell had an orb added and is owned by the previous player
           if (newCell.orbs > oldCell.orbs && newCell.ownerId === previousGameState.current.currentPlayerId) {
             moveRow = row;
             moveCol = col;
@@ -120,7 +105,8 @@ export function GameBoard({
       
       if (moveRow !== -1 && moveCol !== -1) {
         const playerId = previousGameState.current.currentPlayerId;
-        const playerColor = getPlayerColor(playerId);
+        const player = getPlayer(playerId);
+        const playerColor = player?.color || '#888888';
         
         const animations = generateMoveAnimations(
           oldGrid,
@@ -136,51 +122,98 @@ export function GameBoard({
           explosions: animations.explosionAnimations,
           orbs: animations.orbAnimations,
         });
+        
+        // Track exploding cells
+        const exploding = new Set<string>();
+        animations.explosionAnimations.forEach(exp => {
+          exploding.add(`${exp.row}-${exp.col}`);
+        });
+        setExplodingCells(exploding);
+        
         setIsAnimating(true);
+        
+        // Clear exploding cells after animations
+        if (animations.explosionAnimations.length > 0) {
+          setTimeout(() => {
+            setExplodingCells(new Set());
+          }, Math.max(...animations.explosionAnimations.map(e => e.delay)) + 200);
+        } else {
+          // No explosions, clear immediately
+          setTimeout(() => {
+            setExplodingCells(new Set());
+          }, 200);
+        }
       }
     }
     
     previousGameState.current = gameState;
-  }, [gameState]);
+  }, [gameState, optimisticGameState]);
 
-  // Calculate cell size and board dimensions
-  const getBoardDimensions = () => {
+  // UNIFIED SIZING ALGORITHM - works for both desktop and mobile
+  const calculateBoardDimensions = () => {
     const rows = displayState.grid.length;
     const cols = displayState.grid[0]?.length || 0;
-    const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
     
-    let cellSize: number;
-    const gap = isMobile ? 6 : 8;
+    // Get viewport dimensions
+    const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1024;
+    const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 768;
     
-    // Determine cell size based on grid size and device
-    if (isMobile) {
-      if (cols <= 6) cellSize = 50;
-      else if (cols <= 8) cellSize = 40;
-      else if (cols <= 10) cellSize = 35;
-      else cellSize = 30;
-    } else {
-      if (cols <= 6) cellSize = 80;
-      else if (cols <= 8) cellSize = 65;
-      else if (cols <= 10) cellSize = 55;
-      else cellSize = 45;
-    }
+    // Reserve space for UI elements (top bar, floating actions, padding)
+    const reservedHeight = 160; // 48px top + 80px bottom + 32px padding
+    const reservedWidth = 64; // 32px padding on each side
     
-    // Calculate total board dimensions
+    // Calculate available space
+    const availableWidth = viewportWidth - reservedWidth;
+    const availableHeight = viewportHeight - reservedHeight;
+    
+    // Use 70% of available height for the board
+    const maxBoardHeight = availableHeight * 0.7;
+    const maxBoardWidth = availableWidth * 0.9;
+    
+    // Determine gap based on viewport size
+    const gap = viewportWidth < 640 ? 4 : 6;
+    
+    // Calculate maximum cell size that fits in available space
+    const maxCellWidth = (maxBoardWidth - (gap * (cols - 1))) / cols;
+    const maxCellHeight = (maxBoardHeight - (gap * (rows - 1))) / rows;
+    
+    // Use the smaller dimension to maintain square cells
+    let cellSize = Math.min(maxCellWidth, maxCellHeight);
+    
+    // Apply size constraints based on grid size
+    const maxSizes = viewportWidth < 640 
+      ? { 6: 60, 8: 50, 10: 40, default: 35 }  // Mobile
+      : { 6: 80, 8: 70, 10: 60, default: 50 };  // Desktop
+    
+    const maxAllowed = cols <= 6 ? maxSizes[6] 
+                     : cols <= 8 ? maxSizes[8]
+                     : cols <= 10 ? maxSizes[10]
+                     : maxSizes.default;
+    
+    cellSize = Math.min(cellSize, maxAllowed);
+    cellSize = Math.max(cellSize, 30); // Minimum size for usability
+    
+    // Calculate final board dimensions
     const boardWidth = (cellSize * cols) + (gap * (cols - 1));
     const boardHeight = (cellSize * rows) + (gap * (rows - 1));
     
-    return { cellSize, gap, boardWidth, boardHeight, rows, cols };
+    return { 
+      cellSize: Math.floor(cellSize), 
+      gap, 
+      boardWidth: Math.floor(boardWidth), 
+      boardHeight: Math.floor(boardHeight), 
+      rows, 
+      cols 
+    };
   };
 
-  const { cellSize, gap, boardWidth, boardHeight, rows, cols } = getBoardDimensions();
+  const { cellSize, gap, boardWidth, boardHeight, rows, cols } = calculateBoardDimensions();
 
   const handleCellClick = async (row: number, col: number) => {
-    // Prevent moves if game is finished or in runaway state
     if (gameState.status === 'finished' || gameState.status === 'runaway') {
       return;
     }
 
-    // Check if current user is eliminated
     const currentUser = gameState.players.find(p => p.id === currentUserId);
     if (currentUser?.isEliminated) {
       return;
@@ -203,7 +236,8 @@ export function GameBoard({
     pendingMove.current = { row, col };
     
     // Generate and start animations immediately
-    const playerColor = getPlayerColor(currentUserId);
+    const player = getPlayer(currentUserId);
+    const playerColor = player?.color || '#888888';
     const animations = generateMoveAnimations(
       gameState.grid,
       moveResult.newGameState!.grid,
@@ -218,7 +252,27 @@ export function GameBoard({
       explosions: animations.explosionAnimations,
       orbs: animations.orbAnimations,
     });
+    
+    // Track exploding cells
+    const exploding = new Set<string>();
+    animations.explosionAnimations.forEach(exp => {
+      exploding.add(`${exp.row}-${exp.col}`);
+    });
+    setExplodingCells(exploding);
+    
     setIsAnimating(true);
+    
+    // Clear exploding cells after animations
+    if (animations.explosionAnimations.length > 0) {
+      setTimeout(() => {
+        setExplodingCells(new Set());
+      }, Math.max(...animations.explosionAnimations.map(e => e.delay)) + 200);
+    } else {
+      // No explosions, clear immediately
+      setTimeout(() => {
+        setExplodingCells(new Set());
+      }, 200);
+    }
 
     // Submit to server in background
     setIsSubmittingMove(true);
@@ -226,9 +280,7 @@ export function GameBoard({
 
     try {
       await onMove(row, col);
-      // Success - optimistic state will be cleared when real state updates
     } catch (error) {
-      // Revert optimistic update on error
       setOptimisticGameState(null);
       pendingMove.current = null;
       const errorMessage = error instanceof Error ? error.message : 'Failed to submit move';
@@ -248,153 +300,139 @@ export function GameBoard({
   const currentPlayer = displayState.players.find(p => p.id === displayState.currentPlayerId);
 
   return (
-    <div className="w-full">
-      {/* Error display */}
+    <div className="flex flex-col items-center justify-center w-full">
+      {/* Error display - compact and temporary */}
       {lastMoveError && (
-        <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-center">
-          <div className="text-red-600 dark:text-red-400 text-sm">
+        <div className="absolute top-16 left-1/2 transform -translate-x-1/2 z-40 animate-slide-down">
+          <div className="px-4 py-2 bg-red-500 text-white rounded-lg shadow-lg text-sm">
             {lastMoveError}
           </div>
         </div>
       )}
 
-      {/* Smart scrollable container that adapts to content */}
-      <div className="relative w-full">
-        {/* Container that handles both small and large boards elegantly */}
+      {/* Game board container - centered and responsive */}
+      <div className="relative">
+        {/* Reaction picker - floating position */}
+        <div className="absolute -top-12 right-0 z-30 sm:right-4">
+          <ReactionPicker
+            onReactionSelect={(emoji) => sendReaction(emoji)}
+            disabled={isReactionLoading}
+          />
+        </div>
+        
+        {/* The game board with unified sizing */}
         <div 
-          className="relative mx-auto"
+          className={`
+            relative
+            bg-white dark:bg-gray-900
+            p-4 sm:p-6
+            rounded-2xl shadow-2xl
+            border-2 border-gray-200 dark:border-gray-700
+            transition-all duration-300
+            ${optimisticGameState ? 'ring-2 ring-blue-400 ring-opacity-50' : ''}
+            ${gameState.winner ? 'ring-4 ring-green-500' : ''}
+          `}
           style={{
-            maxWidth: '100%',
-            overflowX: boardWidth > (typeof window !== 'undefined' ? window.innerWidth - 64 : 800) ? 'auto' : 'visible',
-            overflowY: 'visible',
+            background: currentPlayer && gameState.status === 'active'
+              ? `linear-gradient(135deg, ${currentPlayer.color}08, transparent)`
+              : undefined,
           }}
         >
-          {/* Inner wrapper that maintains proper dimensions */}
+          {/* Current turn indicator - subtle and integrated */}
+          {gameState.status === 'active' && currentPlayer && (
+            <div 
+              className="absolute -top-0.5 left-6 right-6 h-1 rounded-full"
+              style={{
+                background: `linear-gradient(90deg, transparent, ${currentPlayer.color}, transparent)`,
+                animation: 'glow 2s ease-in-out infinite',
+              }}
+            />
+          )}
+          
+          {/* The grid */}
           <div 
-            className="relative mx-auto"
+            ref={boardRef}
+            className="grid relative"
             style={{
-              width: boardWidth > 600 ? 'max-content' : 'fit-content',
-              minWidth: Math.min(boardWidth, 320),
+              gridTemplateColumns: `repeat(${cols}, ${cellSize}px)`,
+              gridTemplateRows: `repeat(${rows}, ${cellSize}px)`,
+              gap: `${gap}px`,
+              width: `${boardWidth}px`,
+              height: `${boardHeight}px`,
             }}
           >
-            {/* Reaction picker - positioned absolutely */}
-            <div className="absolute -top-12 right-0 z-30">
-              <ReactionPicker
-                onReactionSelect={(emoji) => sendReaction(emoji)}
-                disabled={isReactionLoading}
-              />
-            </div>
-            
-            {/* The actual game board with dynamic sizing */}
-            <div 
-              className={`
-                relative
-                bg-gradient-to-br from-gray-100 to-gray-200 
-                dark:from-gray-900 dark:to-gray-800
-                p-3 sm:p-4
-                rounded-xl shadow-2xl
-                border border-gray-300 dark:border-gray-700
-                transition-all duration-300
-                ${optimisticGameState ? 'ring-2 ring-blue-400 ring-opacity-50' : ''}
-                ${gameState.winner ? 'ring-4 ring-green-500 animate-pulse' : ''}
-                ${gameState.status === 'active' ? 'hover:shadow-3xl' : ''}
-              `}
-              style={{
-                background: gameState.status === 'active' 
-                  ? `linear-gradient(135deg, ${getPlayerColor(gameState.currentPlayerId)}08, transparent)`
-                  : gameState.winner
-                  ? `linear-gradient(135deg, ${getPlayerColor(gameState.winner)}15, transparent)`
-                  : undefined,
-                width: 'fit-content',
-                minWidth: `${boardWidth + 32}px`, // Add padding
-              }}
-            >
-              {/* Current player indicator band */}
-              {gameState.status === 'active' && currentPlayer && (
-                <div 
-                  className="absolute -top-2 left-4 right-4 h-1 rounded-full animate-pulse"
-                  style={{
-                    background: `linear-gradient(90deg, transparent, ${getPlayerColor(currentPlayer.id)}, transparent)`,
-                  }}
-                />
-              )}
-              
-              {/* The grid container with exact dimensions */}
-              <div 
-                ref={boardRef}
-                className="grid relative"
-                style={{
-                  gridTemplateColumns: `repeat(${cols}, ${cellSize}px)`,
-                  gridTemplateRows: `repeat(${rows}, ${cellSize}px)`,
-                  gap: `${gap}px`,
-                  width: `${boardWidth}px`,
-                  height: `${boardHeight}px`,
-                }}
-              >
-                {displayState.grid.map((row, rowIndex) =>
-                  row.map((cell, colIndex) => (
-                    <AnimatedCell
-                      key={`${rowIndex}-${colIndex}`}
-                      cell={cell}
-                      row={rowIndex}
-                      col={colIndex}
-                      players={displayState.players}
-                      isCurrentPlayerTurn={isCurrentPlayerTurn && isGameActive}
-                      currentPlayerId={currentUserId}
-                      onCellClick={handleCellClick}
-                      disabled={disabled || isSubmittingMove || !isGameActive}
-                      isAnimating={isAnimating}
-                      shouldPulse={cell.orbs >= cell.criticalMass && !isAnimating}
-                    />
-                  ))
-                )}
-              </div>
-
-              {/* Grid size indicator */}
-              <div className="absolute bottom-1 left-2 text-[10px] text-gray-400 dark:text-gray-500 font-mono opacity-60">
-                {rows}×{cols}
-              </div>
-            </div>
-
-            {/* Visual hint for scrollable boards */}
-            {boardWidth > (typeof window !== 'undefined' ? window.innerWidth - 64 : 800) && (
-              <div className="absolute top-1/2 -translate-y-1/2 -right-2 animate-pulse">
-                <div className="text-gray-400 text-2xl">→</div>
-              </div>
+            {displayState.grid.map((row, rowIndex) =>
+              row.map((cell, colIndex) => {
+                const isExploding = explodingCells.has(`${rowIndex}-${colIndex}`);
+                return (
+                  <AnimatedCell
+                    key={`${rowIndex}-${colIndex}`}
+                    cell={cell}
+                    row={rowIndex}
+                    col={colIndex}
+                    players={displayState.players}
+                    isCurrentPlayerTurn={isCurrentPlayerTurn && isGameActive}
+                    currentPlayerId={currentUserId}
+                    onCellClick={handleCellClick}
+                    disabled={disabled || isSubmittingMove || !isGameActive}
+                    isAnimating={isAnimating}
+                    shouldPulse={cell.orbs >= cell.criticalMass && !isAnimating}
+                    isExploding={isExploding}
+                    cellSize={cellSize}
+                  />
+                );
+              })
             )}
+            
+            {/* Animation layer - positioned relative to grid */}
+            <AnimationLayer
+              placementAnimation={currentAnimations.placement}
+              explosionAnimations={currentAnimations.explosions}
+              orbAnimations={currentAnimations.orbs}
+              cellSize={cellSize}
+              gap={gap}
+              onAnimationComplete={handleAnimationComplete}
+            />
+          </div>
+
+          {/* Grid size label - subtle */}
+          <div className="absolute bottom-2 left-3 text-[10px] text-gray-400 dark:text-gray-600 font-mono">
+            {rows}×{cols}
           </div>
         </div>
-
-        {/* Animation layer */}
-        <AnimationLayer
-          placementAnimation={currentAnimations.placement}
-          explosionAnimations={currentAnimations.explosions}
-          orbAnimations={currentAnimations.orbs}
-          cellSize={cellSize}
-          gap={gap}
-          onAnimationComplete={handleAnimationComplete}
-        />
 
         {/* Reaction overlay */}
         <ReactionOverlay reactions={reactions} />
       </div>
 
-      {/* Loading indicator - more subtle for optimistic updates */}
+      {/* Status indicators - minimal and unobtrusive */}
       {(isSubmittingMove || isAnimating) && (
-        <div className="text-center mt-4">
-          <div className="inline-flex items-center gap-2 text-blue-600 dark:text-blue-400">
+        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2">
+          <div className="flex items-center gap-2 px-3 py-1 bg-white/80 dark:bg-gray-900/80 backdrop-blur rounded-full shadow-lg">
             {isAnimating && (
               <>
-                <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                <span className="text-sm">Processing chain reaction...</span>
+                <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                <span className="text-xs text-gray-600 dark:text-gray-400">Processing...</span>
               </>
             )}
             {isSubmittingMove && !isAnimating && (
-              <span className="text-xs text-gray-500">Syncing...</span>
+              <span className="text-xs text-gray-500 dark:text-gray-500">Syncing...</span>
             )}
           </div>
         </div>
       )}
+      
+      {/* Glow animation for turn indicator */}
+      <style jsx>{`
+        @keyframes glow {
+          0%, 100% {
+            opacity: 0.6;
+          }
+          50% {
+            opacity: 1;
+          }
+        }
+      `}</style>
     </div>
   );
 }

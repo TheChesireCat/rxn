@@ -36,10 +36,12 @@ export function usePresence(roomId: string, userId?: string): UsePresenceReturn 
   const [error, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
 
-  // Get the game room for presence
-  const room = db.room('gameRoom', roomId);
+  // Always create the room object to avoid conditional hook calls
+  // But use a dummy roomId if none provided
+  const safeRoomId = roomId || 'dummy-room-id';
+  const room = db.room('gameRoom', safeRoomId);
 
-  // Subscribe to presence updates - publishPresence is returned from usePresence
+  // Always call usePresence hook - this ensures hooks are called in the same order
   const { 
     isLoading: presenceLoading, 
     user, 
@@ -56,14 +58,16 @@ export function usePresence(roomId: string, userId?: string): UsePresenceReturn 
 
   // Track connection status
   useEffect(() => {
-    setIsConnected(!!user);
-  }, [user]);
+    setIsConnected(!!user && !!roomId);
+  }, [user, roomId]);
 
   // Set presence data
   const setPresence = useCallback((data: PresenceData) => {
+    // Only actually set presence if we have a real roomId
+    if (!roomId || roomId === '') return;
+    
     try {
       setError(null);
-      // Use the publishPresence function returned from usePresence
       publishPresence(data);
       setIsConnected(true);
     } catch (err) {
@@ -71,13 +75,15 @@ export function usePresence(roomId: string, userId?: string): UsePresenceReturn 
       setError(errorMessage);
       console.error('Error setting presence:', err);
     }
-  }, [publishPresence]);
+  }, [publishPresence, roomId]);
 
   // Clear presence
   const clearPresence = useCallback(() => {
+    // Only clear presence if we have a real roomId
+    if (!roomId || roomId === '') return;
+    
     try {
       setError(null);
-      // Publish empty object to clear presence
       publishPresence({});
       setIsConnected(false);
     } catch (err) {
@@ -85,38 +91,22 @@ export function usePresence(roomId: string, userId?: string): UsePresenceReturn 
       setError(errorMessage);
       console.error('Error clearing presence:', err);
     }
-  }, [publishPresence]);
+  }, [publishPresence, roomId]);
 
-  // Process connected users
+  // Process connected users - only if we have a real roomId
   const connectedUsers: Record<string, PresenceData> = {};
   const connectedPlayers: PresenceData[] = [];
   const connectedSpectators: PresenceData[] = [];
 
-  // Add current user if connected
-  if (user && user.name && user.role && user.userId) {
-    const userData: PresenceData = {
-      name: user.name as string,
-      role: user.role as 'player' | 'spectator',
-      userId: user.userId as string,
-    };
-    connectedUsers[user.userId as string] = userData;
-    
-    if (userData.role === 'player') {
-      connectedPlayers.push(userData);
-    } else {
-      connectedSpectators.push(userData);
-    }
-  }
-
-  // Add peers
-  Object.entries(peers || {}).forEach(([peerId, peerData]) => {
-    if (peerData && peerData.name && peerData.role && peerData.userId) {
+  if (roomId && roomId !== '') {
+    // Add current user if connected
+    if (user && user.name && user.role && user.userId) {
       const userData: PresenceData = {
-        name: peerData.name as string,
-        role: peerData.role as 'player' | 'spectator',
-        userId: peerData.userId as string,
+        name: user.name as string,
+        role: user.role as 'player' | 'spectator',
+        userId: user.userId as string,
       };
-      connectedUsers[peerData.userId as string] = userData;
+      connectedUsers[user.userId as string] = userData;
       
       if (userData.role === 'player') {
         connectedPlayers.push(userData);
@@ -124,14 +114,32 @@ export function usePresence(roomId: string, userId?: string): UsePresenceReturn 
         connectedSpectators.push(userData);
       }
     }
-  });
+
+    // Add peers
+    Object.entries(peers || {}).forEach(([peerId, peerData]) => {
+      if (peerData && peerData.name && peerData.role && peerData.userId) {
+        const userData: PresenceData = {
+          name: peerData.name as string,
+          role: peerData.role as 'player' | 'spectator',
+          userId: peerData.userId as string,
+        };
+        connectedUsers[peerData.userId as string] = userData;
+        
+        if (userData.role === 'player') {
+          connectedPlayers.push(userData);
+        } else {
+          connectedSpectators.push(userData);
+        }
+      }
+    });
+  }
 
   const totalConnected = Object.keys(connectedUsers).length;
 
   // Auto-cleanup on unmount
   useEffect(() => {
     return () => {
-      if (isConnected && publishPresence) {
+      if (isConnected && roomId && roomId !== '') {
         try {
           publishPresence({});
         } catch (err) {
@@ -139,7 +147,7 @@ export function usePresence(roomId: string, userId?: string): UsePresenceReturn 
         }
       }
     };
-  }, [isConnected, publishPresence]);
+  }, [isConnected, publishPresence, roomId]);
 
   return {
     isConnected,
@@ -149,7 +157,7 @@ export function usePresence(roomId: string, userId?: string): UsePresenceReturn 
     connectedPlayers,
     connectedSpectators,
     totalConnected,
-    isLoading,
+    isLoading: roomId ? isLoading : false,
     error,
   };
 }
@@ -158,7 +166,7 @@ export function usePresence(roomId: string, userId?: string): UsePresenceReturn 
  * Hook for checking if a specific user is connected
  */
 export function useUserPresence(roomId: string, userId: string): boolean {
-  const { connectedUsers } = usePresence(roomId);
+  const { connectedUsers } = usePresence(roomId, userId);
   return userId in connectedUsers;
 }
 

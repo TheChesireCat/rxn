@@ -32,20 +32,63 @@ export async function POST(request: NextRequest) {
     // Sanitize the message text
     const sanitizedText = text.trim();
 
-    // Create the chat message
+    // Verify room exists first
+    const roomQuery = await db.query({
+      rooms: { $: { where: { id: roomId } } }
+    });
+    
+    if (!roomQuery.rooms || roomQuery.rooms.length === 0) {
+      console.error('Room not found:', roomId);
+      return NextResponse.json(
+        { error: 'Room not found' },
+        { status: 404 }
+      );
+    }
+
+    // Create the chat message with proper room link
     const messageId = crypto.randomUUID();
-    await db.transact(
-      db.tx.chatMessages[messageId].update({
-        roomId,
-        userId,
-        text: sanitizedText,
-        createdAt: Date.now(),
-      }).link({ room: roomId })
-    );
+    const timestamp = Date.now();
+    
+    console.log('Creating chat message:', {
+      messageId,
+      roomId,
+      userId,
+      text: sanitizedText.substring(0, 50),
+      timestamp
+    });
+    
+    try {
+      await db.transact(
+        db.tx.chatMessages[messageId].update({
+          roomId,
+          userId,
+          text: sanitizedText,
+          createdAt: timestamp,
+        }).link({ room: roomId })
+      );
+      
+      console.log('Message created successfully:', messageId);
+      
+      // Verify message was created
+      const verifyQuery = await db.query({
+        chatMessages: { $: { where: { id: messageId } } }
+      });
+      
+      if (verifyQuery.chatMessages && verifyQuery.chatMessages.length > 0) {
+        console.log('Message verified in database');
+      } else {
+        console.warn('Message created but not found in verification query');
+      }
+      
+    } catch (txError) {
+      console.error('Transaction error:', txError);
+      throw txError;
+    }
 
     return NextResponse.json({ 
       success: true, 
       messageId,
+      timestamp,
       message: 'Message sent successfully' 
     });
 
