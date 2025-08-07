@@ -36,7 +36,7 @@ export function PlayersModal({
   });
 
   const spectators = Array.from(onlineUsers).filter(
-    userId => !players.some(p => p.userId === userId)
+    userId => !players.some(p => p.id === userId)
   );
 
   return (
@@ -68,7 +68,7 @@ export function PlayersModal({
           </h3>
           <div className="space-y-2">
             {sortedPlayers.map((player) => {
-              const isOnline = onlineUsers.has(player.userId);
+              const isOnline = onlineUsers.has(player.id);
               const isCurrentTurn = player.id === currentPlayerId;
               const isEliminated = room.status === 'playing' && player.orbCount === 0 && player.hasPlayed;
 
@@ -96,10 +96,10 @@ export function PlayersModal({
                           <span className="font-medium text-gray-900 dark:text-white">
                             {player.name}
                           </span>
-                          {player.userId === room.hostId && (
+                          {player.id === room.hostId && (
                             <Crown className="w-4 h-4 text-yellow-500" />
                           )}
-                          {player.userId === currentUserId && (
+                          {player.id === currentUserId && (
                             <span className="text-xs text-blue-600 dark:text-blue-400">(You)</span>
                           )}
                         </div>

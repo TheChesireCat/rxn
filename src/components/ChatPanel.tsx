@@ -66,7 +66,7 @@ export function ChatPanel({
   }, [data, roomId]);
   
   // Log any query errors
-  if (error) {
+  if (error && Object.keys(error).length > 0) {
     console.error('Error querying chat messages:', error);
   }
 

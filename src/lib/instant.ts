@@ -1,5 +1,5 @@
 import { init } from '@instantdb/react';
-import schema from '../../instant.schema';
+import schema from '../../instant.schema.ts';
 
 // Initialize InstantDB with schema and proper configuration
 const APP_ID = process.env.NEXT_PUBLIC_INSTANT_APP_ID;
@@ -14,7 +14,7 @@ export const db = init({
 });
 
 // Export types for use throughout the application
-export type { AppSchema } from '../../instant.schema';
+export type { AppSchema } from '../../instant.schema.ts';
 
 // Import game types
 import type { GameState, RoomSettings } from '../types/game';

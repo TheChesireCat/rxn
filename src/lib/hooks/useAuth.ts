@@ -8,10 +8,15 @@ export interface AuthState {
   isAuthenticated: boolean;
   activeRoom: RoomSession | null;
   roomHistory: RoomSession[];
+  // New fields for claimed user authentication
+  isClaimed: boolean;
+  authUserId?: string;
+  email?: string;
 }
 
 export interface AuthActions {
-  createUser: (username: string) => Promise<User>;
+  createUser: (username: string, authUserId?: string, email?: string) => Promise<User>;
+  updateUser: (updatedUser: User) => void;
   logout: () => void;
   joinRoom: (roomId: string, roomName: string, role: 'player' | 'spectator') => void;
   leaveRoom: () => void;
@@ -25,6 +30,9 @@ export function useAuth(): AuthState & AuthActions {
     isAuthenticated: false,
     activeRoom: null,
     roomHistory: [],
+    isClaimed: false,
+    authUserId: undefined,
+    email: undefined,
   });
 
   // Initialize session on mount
@@ -40,6 +48,9 @@ export function useAuth(): AuthState & AuthActions {
         isAuthenticated: !!session,
         activeRoom,
         roomHistory,
+        isClaimed: session?.user?.isClaimed || false,
+        authUserId: session?.authUserId,
+        email: session?.email,
       });
     };
 
@@ -58,18 +69,26 @@ export function useAuth(): AuthState & AuthActions {
   }, [state.isAuthenticated]);
 
   /**
-   * Create a new user session
+   * Create a new user session (for both claimed and unclaimed users)
    */
-  const createUser = useCallback(async (username: string): Promise<User> => {
+  const createUser = useCallback(async (username: string, authUserId?: string, email?: string): Promise<User> => {
     setState(prev => ({ ...prev, isLoading: true }));
 
     try {
+      const requestBody: any = { name: username };
+      
+      // Include auth info for claimed users
+      if (authUserId && email) {
+        requestBody.authUserId = authUserId;
+        requestBody.email = email;
+      }
+
       const response = await fetch('/api/user/create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ name: username }),
+        body: JSON.stringify(requestBody),
       });
 
       const result: ApiResponse<User> = await response.json();
@@ -80,7 +99,7 @@ export function useAuth(): AuthState & AuthActions {
 
       const user = result.data;
 
-      // Store session
+      // Store session with authentication info
       SessionManager.storeSession(user);
 
       setState(prev => ({
@@ -88,6 +107,9 @@ export function useAuth(): AuthState & AuthActions {
         user,
         isLoading: false,
         isAuthenticated: true,
+        isClaimed: user.isClaimed || false,
+        authUserId: user.authUserId,
+        email: user.email,
       }));
 
       return user;
@@ -95,6 +117,23 @@ export function useAuth(): AuthState & AuthActions {
       setState(prev => ({ ...prev, isLoading: false }));
       throw error;
     }
+  }, []);
+
+  /**
+   * Update user data in current session (for username claiming)
+   */
+  const updateUser = useCallback((updatedUser: User) => {
+    // Update session storage
+    SessionManager.updateUserInSession(updatedUser);
+
+    // Update state
+    setState(prev => ({
+      ...prev,
+      user: updatedUser,
+      isClaimed: updatedUser.isClaimed || false,
+      authUserId: updatedUser.authUserId,
+      email: updatedUser.email,
+    }));
   }, []);
 
   /**

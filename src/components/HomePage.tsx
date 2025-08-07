@@ -4,8 +4,9 @@ import React, { useState, useEffect } from 'react';
 import { SessionManager } from '@/lib/sessionManager';
 import { CreateGameForm } from './CreateGameForm';
 import { JoinGameForm } from './JoinGameForm';
-import { UserSetupForm } from './UserSetupForm';
+import { EnhancedAuthForm } from './auth/EnhancedAuthForm';
 import { RejoinGamePrompt } from './RejoinGamePrompt';
+import { ClaimUsernameButton } from './ClaimUsernameButton';
 import type { User } from '@/types/game';
 
 type ViewMode = 'main' | 'create' | 'join' | 'userSetup';
@@ -53,17 +54,53 @@ export function HomePage() {
     }
   }, []);
 
-  const handleUserCreated = (user: User) => {
+  const handleUserAuthenticated = async (user: User) => {
+    // Store the authenticated user (either claimed or unclaimed)
     setCurrentUser(user);
     SessionManager.storeSession(user);
     setViewMode('main');
+  };
+  
+  const handleGuestUserCreated = async (username: string) => {
+    try {
+      // Create an unclaimed user for guest play
+      const response = await fetch('/api/user/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: username }),
+      });
+
+      if (!response.ok) {
+        const result = await response.json();
+        throw new Error(result.error || 'Failed to create user');
+      }
+
+      const result = await response.json();
+      handleUserAuthenticated(result.data);
+    } catch (error) {
+      console.error('Error creating guest user:', error);
+      // The MagicCodeLogin component should handle this error
+      throw error;
+    }
   };
 
   const handleBackToMain = () => {
     setViewMode('main');
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // Sign out from InstantDB if user is claimed
+    if (currentUser?.isClaimed) {
+      try {
+        const { AuthService } = await import('@/lib/authService');
+        await AuthService.signOut();
+      } catch (error) {
+        console.error('Error signing out from InstantDB:', error);
+        // Continue with logout even if InstantDB sign out fails
+      }
+    }
+    
+    // Clear local session
     SessionManager.clearSession();
     setCurrentUser(null);
     setHasActiveGame(false);
@@ -73,10 +110,10 @@ export function HomePage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center relative overflow-hidden">
-        {/* Animated background orbs */}
+        {/* Animated background orbs - smaller and further from edges */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-blue-300 dark:bg-blue-600 rounded-full opacity-20 animate-pulse"></div>
-          <div className="absolute bottom-1/4 right-1/4 w-48 h-48 bg-purple-300 dark:bg-purple-600 rounded-full opacity-20 animate-pulse" style={{animationDelay: '0.7s'}}></div>
+          <div className="absolute top-[35%] left-[15%] w-32 h-32 sm:w-48 sm:h-48 bg-blue-300 dark:bg-blue-600 rounded-full opacity-20 animate-pulse"></div>
+          <div className="absolute bottom-[30%] right-[20%] w-24 h-24 sm:w-36 sm:h-36 bg-purple-300 dark:bg-purple-600 rounded-full opacity-20 animate-pulse" style={{animationDelay: '0.7s'}}></div>
         </div>
         <div className="text-center relative z-10">
           <div className="relative mb-6">
@@ -97,11 +134,12 @@ export function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 overflow-hidden relative">
       
-      {/* Animated background orbs */}
+      {/* Animated background orbs - smaller and further from edges */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-blue-300 dark:bg-blue-600 rounded-full opacity-20 animate-pulse"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-48 h-48 bg-purple-300 dark:bg-purple-600 rounded-full opacity-20 animate-pulse" style={{animationDelay: '0.7s'}}></div>
-        <div className="absolute top-3/4 left-1/3 w-32 h-32 bg-pink-300 dark:bg-pink-600 rounded-full opacity-20 animate-pulse" style={{animationDelay: '1s'}}></div>
+        <div className="absolute top-[35%] left-[15%] w-32 h-32 sm:w-48 sm:h-48 bg-blue-300 dark:bg-blue-600 rounded-full opacity-20 animate-pulse"></div>
+        <div className="absolute bottom-[30%] right-[20%] w-24 h-24 sm:w-36 sm:h-36 bg-purple-300 dark:bg-purple-600 rounded-full opacity-20 animate-pulse" style={{animationDelay: '0.7s'}}></div>
+        <div className="absolute top-[60%] left-[70%] w-20 h-20 sm:w-28 sm:h-28 bg-pink-300 dark:bg-pink-600 rounded-full opacity-20 animate-pulse" style={{animationDelay: '1s'}}></div>
+        <div className="absolute top-[20%] right-[35%] w-16 h-16 sm:w-24 sm:h-24 bg-green-300 dark:bg-green-600 rounded-full opacity-15 animate-pulse" style={{animationDelay: '1.3s'}}></div>
       </div>
       
       <div className="container mx-auto px-4 py-8 sm:py-16 relative z-10">
@@ -109,22 +147,54 @@ export function HomePage() {
         {/* Enhanced Header */}
         <div className="text-center mb-8 sm:mb-12">
           <div className="mb-6">
-            <h1 className="text-5xl sm:text-7xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-2">
+            <h1 className="text-6xl sm:text-6xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-2" style={{ fontFamily: "'Fredoka', sans-serif" }}>
               Chain Reaction
             </h1>
             <div className="w-24 h-1 bg-gradient-to-r from-blue-500 to-purple-500 mx-auto rounded-full"></div>
           </div>
           <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 mb-6 sm:mb-8 max-w-2xl mx-auto">
-            Real-time multiplayer strategy game where players place orbs to trigger explosive chain reactions
+            A clone of the classic{' '}
+            <a 
+              href="https://brilliant.org/wiki/chain-reaction-game/" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 underline underline-offset-2 hover:underline-offset-4 transition-all duration-200"
+            >
+              Chain Reaction game
+            </a>
           </p>
           
           {/* Enhanced user info and logout */}
           {currentUser && (
             <div className="flex items-center justify-center gap-4 mb-6">
               <div className="glass backdrop-blur-sm rounded-full px-4 py-2 shadow-lg border border-gray-200/50 dark:border-gray-700/50">
-                <span className="text-gray-700 dark:text-gray-300">
-                  Welcome back, <strong className="text-blue-600 dark:text-blue-400">{currentUser.name}</strong>
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-700 dark:text-gray-300">
+                    Welcome back, <strong className="text-blue-600 dark:text-blue-400">{currentUser.name}</strong>
+                  </span>
+                  {/* User status indicator */}
+                  <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                    currentUser.isClaimed 
+                      ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+                  }`}>
+                    {currentUser.isClaimed ? (
+                      <>
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                        <span>Registered</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                        </svg>
+                        <span>Guest</span>
+                      </>
+                    )}
+                  </div>
+                </div>
               </div>
               <button
                 onClick={handleLogout}
@@ -140,10 +210,24 @@ export function HomePage() {
         <div className="max-w-md mx-auto">
           {!currentUser ? (
             <div className="glass backdrop-blur-sm rounded-2xl shadow-xl p-6 sm:p-8 border border-gray-200/50 dark:border-gray-700/50">
-              <UserSetupForm onUserCreated={handleUserCreated} />
+              <EnhancedAuthForm onAuthenticated={handleUserAuthenticated} onGuestCreated={handleGuestUserCreated} />
             </div>
           ) : (
             <>
+              {/* Claim username prompt for successful guest users */}
+              {!currentUser.isClaimed && currentUser.wins > 0 && (
+                <div className="mb-6">
+                  <ClaimUsernameButton 
+                    user={currentUser} 
+                    onClaimed={() => {
+                      // Refresh user data after claiming
+                      const updatedUser = { ...currentUser, isClaimed: true };
+                      handleUserAuthenticated(updatedUser);
+                    }} 
+                  />
+                </div>
+              )}
+
               {/* Rejoin active game prompt */}
               {hasActiveGame && viewMode === 'main' && (
                 <div className="mb-6">

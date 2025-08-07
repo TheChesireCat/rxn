@@ -11,6 +11,10 @@ export interface SessionData {
   user: User;
   activeRoomId?: string;
   lastActivity: number;
+  // Authentication state for claimed users
+  isAuthenticated?: boolean;
+  authUserId?: string;
+  email?: string;
 }
 
 export interface RoomSession {
@@ -25,6 +29,82 @@ const SESSION_TIMEOUT = 24 * 60 * 60 * 1000;
 
 export class SessionManager {
   /**
+   * Validate that a claimed user's session is still valid with InstantDB
+   */
+  static async validateClaimedUser(): Promise<{ isValid: boolean; needsReauth?: boolean; email?: string }> {
+    const session = this.getSession();
+    
+    // Unclaimed users are always valid
+    if (!session?.isAuthenticated || !session.authUserId) {
+      return { isValid: true };
+    }
+
+    try {
+      // Import db here to avoid circular dependencies
+      const { db } = await import('@/lib/instant');
+      const authUser = await db.getAuth();
+      
+      // Check if InstantDB auth is still valid
+      if (authUser?.id === session.authUserId) {
+        return { isValid: true };
+      } else {
+        // Auth expired but we have email for re-authentication
+        return { 
+          isValid: false, 
+          needsReauth: true, 
+          email: session.email 
+        };
+      }
+    } catch (error) {
+      console.error('Error validating claimed user session:', error);
+      return { 
+        isValid: false, 
+        needsReauth: !!session.email, 
+        email: session.email 
+      };
+    }
+  }
+
+  /**
+   * Clear session if authentication is invalid
+   */
+  static handleInvalidAuth(): void {
+    const session = this.getSession();
+    if (session?.isAuthenticated) {
+      console.log('Clearing invalid authentication session');
+      // Keep the user data but clear auth state
+      const unclaimedUser: User = {
+        ...session.user,
+        authUserId: undefined,
+        email: undefined,
+        nameClaimedAt: undefined,
+        isClaimed: false
+      };
+      
+      // Store as unclaimed user
+      this.storeSession(unclaimedUser, session.activeRoomId);
+    }
+  }
+
+  /**
+   * Update authentication state (for re-authentication)
+   */
+  static updateAuthState(authUserId: string, email: string): void {
+    const session = this.getSession();
+    if (session) {
+      const claimedUser: User = {
+        ...session.user,
+        authUserId,
+        email,
+        nameClaimedAt: session.user.nameClaimedAt || Date.now(),
+        isClaimed: true
+      };
+      
+      this.storeSession(claimedUser, session.activeRoomId);
+    }
+  }
+
+  /**
    * Store user session data in localStorage
    */
   static storeSession(user: User, activeRoomId?: string): void {
@@ -34,6 +114,10 @@ export class SessionManager {
       user,
       activeRoomId,
       lastActivity: Date.now(),
+      // Store authentication state for claimed users
+      isAuthenticated: user.isClaimed || false,
+      authUserId: user.authUserId,
+      email: user.email,
     };
 
     try {
@@ -78,6 +162,45 @@ export class SessionManager {
       session.lastActivity = Date.now();
       this.storeSession(session.user, session.activeRoomId);
     }
+  }
+
+  /**
+   * Update user data in existing session (for username claiming)
+   */
+  static updateUserInSession(updatedUser: User): void {
+    const session = this.getSession();
+    if (session) {
+      // Merge updated user data while preserving session info
+      const mergedUser: User = {
+        ...session.user,
+        ...updatedUser,
+        // Ensure computed field is set correctly
+        isClaimed: !!updatedUser.authUserId,
+      };
+      
+      this.storeSession(mergedUser, session.activeRoomId);
+    }
+  }
+
+  /**
+   * Check if current session user is authenticated (claimed)
+   */
+  static isUserAuthenticated(): boolean {
+    const session = this.getSession();
+    return session?.isAuthenticated || false;
+  }
+
+  /**
+   * Get authentication info from session
+   */
+  static getAuthInfo(): { authUserId?: string; email?: string } | null {
+    const session = this.getSession();
+    if (!session) return null;
+    
+    return {
+      authUserId: session.authUserId,
+      email: session.email,
+    };
   }
 
   /**

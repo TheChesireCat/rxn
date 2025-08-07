@@ -58,6 +58,11 @@ export interface User {
   wins: number;
   gamesPlayed: number;
   createdAt: number;
+  // Authentication fields for claimed users
+  authUserId?: string;  // Links to InstantDB $users.id when claimed
+  email?: string;       // Email address for claimed users
+  nameClaimedAt?: number; // When username was registered
+  isClaimed?: boolean;  // Computed field for UI convenience
 }
 
 // Animation types for react-spring

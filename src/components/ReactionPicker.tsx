@@ -57,7 +57,7 @@ export function ReactionPicker({ onReactionSelect, disabled = false, className =
           />
           
           {/* Picker panel */}
-          <div className="absolute bottom-full right-0 mb-3 z-20 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700">
+          <div className="absolute top-full right-0 mt-3 z-20 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700">
             {/* Header */}
             <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-700">
               <h3 className="text-xs font-medium text-gray-600 dark:text-gray-400 text-center">

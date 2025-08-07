@@ -22,6 +22,10 @@ import { MoveTimer } from './MoveTimer';
 import { GameTimer } from './GameTimer';
 import { LobbyModal } from './LobbyModal';
 import { DebugChat } from './DebugChat';
+import { ConnectionNotification } from './ConnectionNotification';
+import { useConnectionNotifications } from '@/lib/hooks/useConnectionNotifications';
+import { SessionRecoveryModal } from './auth/SessionRecoveryModal';
+import type { User } from '@/types/game';
 
 interface GameRoomProps {
   roomId: string;
@@ -39,7 +43,9 @@ function GameRoomContent({ currentUserId, roomId }: { currentUserId: string; roo
   const [showStats, setShowStats] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showLobby, setShowLobby] = useState(false);
+  const [showSessionRecovery, setShowSessionRecovery] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [recoveryUser, setRecoveryUser] = useState<{ username: string; email?: string } | null>(null);
 
   // Presence tracking - always call the hook
   const presence = usePresence(room?.id || '', currentUserId);
@@ -50,6 +56,13 @@ function GameRoomContent({ currentUserId, roomId }: { currentUserId: string; roo
     roomId: room?.id,
     currentUserId,
     isChatOpen: showChat
+  });
+
+  // Connection notifications
+  const { notifications, dismissNotification } = useConnectionNotifications({
+    connectedUsers: presence.connectedUsers,
+    players: gameState?.players || [],
+    currentUserId
   });
 
   // Note: ChatModal now handles its own message fetching directly
@@ -91,6 +104,27 @@ function GameRoomContent({ currentUserId, roomId }: { currentUserId: string; roo
     }
   }, [isWaiting, showLobby]);
 
+  // Check for session expiration errors and offer recovery
+  useEffect(() => {
+    if (error && currentUserId) {
+      // Find current user from SessionManager
+      const currentUser = SessionManager.getCurrentUser();
+      
+      if (currentUser?.isClaimed && 
+          (error.includes('session expired') || 
+           error.includes('authentication') ||
+           error.includes('expired'))) {
+        
+        // Set up recovery modal
+        setRecoveryUser({
+          username: currentUser.name,
+          email: currentUser.email
+        });
+        setShowSessionRecovery(true);
+      }
+    }
+  }, [error, currentUserId]);
+
   // Compute derived state
   const isSpectator = gameState ? !gameState.players.some(p => p.id === currentUserId) : false;
   const currentPlayer = gameState?.players.find(p => p.id === gameState.currentPlayerId);
@@ -99,13 +133,27 @@ function GameRoomContent({ currentUserId, roomId }: { currentUserId: string; roo
   // Define callbacks - these don't violate hooks rules
   const onGameTimeout = async () => {
     if (room?.id) {
-      await handleGameTimeout(room.id);
+      try {
+        await handleGameTimeout(room.id);
+        // Refresh room data after timeout to get updated game state
+        await refreshRoom();
+      } catch (error) {
+        console.error('Game timeout handling failed:', error);
+        // Don't break the UI, just log the error
+      }
     }
   };
 
   const onMoveTimeout = async () => {
     if (room?.id) {
-      await handleMoveTimeout(room.id);
+      try {
+        await handleMoveTimeout(room.id);
+        // Refresh room data after timeout to get updated game state
+        await refreshRoom();
+      } catch (error) {
+        console.error('Move timeout handling failed:', error);
+        // Don't break the UI, just log the error
+      }
     }
   };
 
@@ -135,6 +183,21 @@ function GameRoomContent({ currentUserId, roomId }: { currentUserId: string; roo
     }
   };
 
+  const handleSessionRecovered = (user: User) => {
+    setShowSessionRecovery(false);
+    setRecoveryUser(null);
+    // Clear the error that triggered recovery
+    refreshRoom();
+    // Force a page refresh to update the user context
+    window.location.reload();
+  };
+
+  const handleSessionRecoveryClose = () => {
+    setShowSessionRecovery(false);
+    setRecoveryUser(null);
+    // User chose to continue as guest, error will remain visible
+  };
+
   // NOW we can have conditional returns, after ALL hooks have been called
   
   if (isLoading) {
@@ -153,7 +216,20 @@ function GameRoomContent({ currentUserId, roomId }: { currentUserId: string; roo
       <div className="flex items-center justify-center min-h-screen px-4">
         <div className="text-center p-6 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800 max-w-md w-full">
           <div className="mb-4">
-            <div className="text-4xl mb-3">🔍</div>
+            <div className="text-4xl mb-3">
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                width="1em" 
+                height="1em" 
+                viewBox="0 0 24 24"
+                className="inline-block text-yellow-600 dark:text-yellow-400"
+              >
+                <path 
+                  fill="currentColor" 
+                  d="M22 14h-1c0-3.87-3.13-7-7-7h-1V5.73A2 2 0 1 0 10 4c0 .74.4 1.39 1 1.73V7h-1c-3.87 0-7 3.13-7 7H2c-.55 0-1 .45-1 1v3c0 .55.45 1 1 1h1v1a2 2 0 0 0 2 2h14c1.11 0 2-.89 2-2v-1h1c.55 0 1-.45 1-1v-3c0-.55-.45-1-1-1M9.86 16.68l-1.18 1.18l-1.18-1.18l-1.18 1.18l-1.18-1.18l1.18-1.18l-1.18-1.18l1.18-1.18l1.18 1.18l1.18-1.18l1.18 1.18l-1.18 1.18zm9 0l-1.18 1.18l-1.18-1.18l-1.18 1.18l-1.18-1.18l1.18-1.18l-1.18-1.18l1.18-1.18l1.18 1.18l1.18-1.18l1.18 1.18l-1.18 1.18z" 
+                />
+              </svg>
+            </div>
             <h2 className="text-xl font-semibold text-yellow-800 dark:text-yellow-200 mb-2">
               Game Not Found
             </h2>
@@ -222,8 +298,31 @@ function GameRoomContent({ currentUserId, roomId }: { currentUserId: string; roo
             onMove={makeMove}
             disabled={!isGameActive}
           />
+
+          {/* Move Timer - prominently displayed during gameplay */}
+          {room.settings.moveTimeLimit && isGameActive && (
+            <div className="mt-4 max-w-sm mx-auto">
+              <MoveTimer
+                turnStartedAt={gameState.turnStartedAt || Date.now()}
+                moveTimeLimit={room.settings.moveTimeLimit}
+                isCurrentPlayerTurn={gameState.currentPlayerId === currentUserId}
+                isGameActive={isGameActive}
+                onTimeout={onMoveTimeout}
+              />
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Connection Notifications */}
+      {notifications.map((notification) => (
+        <ConnectionNotification
+          key={notification.id}
+          playerName={notification.playerName}
+          isOnline={notification.isOnline}
+          onDismiss={() => dismissNotification(notification.id)}
+        />
+      ))}
 
       {/* Debug panel - remove in production */}
       {/* {process.env.NODE_ENV === 'development' && (
@@ -273,6 +372,17 @@ function GameRoomContent({ currentUserId, roomId }: { currentUserId: string; roo
         players={gameState.players}  // Pass players for username lookup
       />
 
+      {/* Session Recovery Modal */}
+      {recoveryUser && (
+        <SessionRecoveryModal
+          isOpen={showSessionRecovery}
+          onClose={handleSessionRecoveryClose}
+          username={recoveryUser.username}
+          email={recoveryUser.email}
+          onRecovered={handleSessionRecovered}
+        />
+      )}
+
       {/* Settings Modal */}
       <ModalBase
         isOpen={showSettings}
@@ -292,20 +402,7 @@ function GameRoomContent({ currentUserId, roomId }: { currentUserId: string; roo
             onMoveTimeout={onMoveTimeout}
           />
           
-          {/* Timers */}
-          {room.settings.moveTimeLimit && isGameActive && (
-            <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-              <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2">
-                Move Timer
-              </h3>
-              <MoveTimer
-                moveTimeLimit={room.settings.moveTimeLimit}
-                currentPlayerId={gameState.currentPlayerId}
-                lastMoveTime={gameState.lastMoveTime}
-                onTimeout={onMoveTimeout}
-              />
-            </div>
-          )}
+
           
           {room.settings.gameTimeLimit && isGameActive && (
             <div className="pt-4 border-t border-gray-200 dark:border-gray-700">

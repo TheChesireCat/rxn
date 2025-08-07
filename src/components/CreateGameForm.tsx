@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { SessionManager } from '@/lib/sessionManager';
+import { useMobile } from '@/lib/hooks/useMobile';
 import type { User, CreateRoomRequest, RoomSettings, ApiResponse, Room } from '@/types/game';
 
 interface CreateGameFormProps {
@@ -12,18 +13,32 @@ interface CreateGameFormProps {
 
 export function CreateGameForm({ currentUser, onBack }: CreateGameFormProps) {
   const router = useRouter();
+  const isMobile = useMobile();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  // Form state
+  // Form state with smart defaults based on device type
   const [roomName, setRoomName] = useState('');
   const [maxPlayers, setMaxPlayers] = useState(4);
-  const [boardRows, setBoardRows] = useState(6);
-  const [boardCols, setBoardCols] = useState(8);
-  const [gameTimeLimit, setGameTimeLimit] = useState<number | undefined>(undefined);
+  const [boardRows, setBoardRows] = useState(isMobile ? 8 : 6);
+  const [boardCols, setBoardCols] = useState(isMobile ? 6 : 8);
+  const [boardSizeMode, setBoardSizeMode] = useState<'preset' | 'custom'>('preset');
+  const [selectedPreset, setSelectedPreset] = useState(isMobile ? '8x6' : '6x8');
+  const [gameTimeLimit, setGameTimeLimit] = useState<number | undefined>(30 * 60); // 30 minutes in seconds
   const [moveTimeLimit, setMoveTimeLimit] = useState<number | undefined>(undefined);
   const [undoEnabled, setUndoEnabled] = useState(false);
   const [isPrivate, setIsPrivate] = useState(false);
+
+  // Update defaults when mobile state changes (on resize)
+  useEffect(() => {
+    if (boardSizeMode === 'preset') {
+      const defaultPreset = isMobile ? '8x6' : '6x8';
+      setSelectedPreset(defaultPreset);
+      const [rows, cols] = defaultPreset.split('x').map(Number);
+      setBoardRows(rows);
+      setBoardCols(cols);
+    }
+  }, [isMobile, boardSizeMode]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,10 +61,11 @@ export function CreateGameForm({ currentUser, onBack }: CreateGameFormProps) {
         isPrivate,
       };
 
-      const createRequest: CreateRoomRequest & { hostId: string } = {
+      const createRequest: CreateRoomRequest & { hostId: string; hostName: string } = {
         name: roomName.trim(),
         settings,
         hostId: currentUser.id,
+        hostName: currentUser.name,
       };
 
       const response = await fetch('/api/room/create', {
@@ -140,29 +156,94 @@ export function CreateGameForm({ currentUser, onBack }: CreateGameFormProps) {
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Board Size
             </label>
-            <div className="flex space-x-2">
-              <select
-                value={boardRows}
-                onChange={(e) => setBoardRows(Number(e.target.value))}
-                className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            
+            {/* Mode Toggle */}
+            <div className="flex mb-3 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+              <button
+                type="button"
+                onClick={() => setBoardSizeMode('preset')}
+                className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+                  boardSizeMode === 'preset'
+                    ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                }`}
                 disabled={isLoading}
               >
-                {[3, 4, 5, 6, 7, 8, 9, 10].map(num => (
-                  <option key={num} value={num}>{num}</option>
-                ))}
-              </select>
-              <span className="flex items-center text-gray-500 dark:text-gray-400">×</span>
-              <select
-                value={boardCols}
-                onChange={(e) => setBoardCols(Number(e.target.value))}
-                className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                Presets
+              </button>
+              <button
+                type="button"
+                onClick={() => setBoardSizeMode('custom')}
+                className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+                  boardSizeMode === 'custom'
+                    ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                }`}
                 disabled={isLoading}
               >
-                {[3, 4, 5, 6, 7, 8, 9, 10].map(num => (
-                  <option key={num} value={num}>{num}</option>
-                ))}
-              </select>
+                Custom
+              </button>
             </div>
+
+            {boardSizeMode === 'preset' ? (
+              <select
+                value={selectedPreset}
+                onChange={(e) => {
+                  setSelectedPreset(e.target.value);
+                  const [rows, cols] = e.target.value.split('x').map(Number);
+                  setBoardRows(rows);
+                  setBoardCols(cols);
+                }}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                disabled={isLoading}
+              >
+                <optgroup label="Square">
+                  <option value="6x6">6×6 (Small Square)</option>
+                  <option value="8x8">8×8 (Medium Square)</option>
+                  <option value="10x10">10×10 (Large Square)</option>
+                </optgroup>
+                <optgroup label="Landscape">
+                  <option value="5x8">5×8 (Small Landscape)</option>
+                  <option value="6x8">6×8 (Medium Landscape)</option>
+                  <option value="6x10">6×10 (Large Landscape)</option>
+                  <option value="8x10">8×10 (Wide Landscape)</option>
+                </optgroup>
+                <optgroup label="Portrait">
+                  <option value="8x5">8×5 (Small Portrait)</option>
+                  <option value="8x6">8×6 (Medium Portrait)</option>
+                  <option value="10x6">10×6 (Large Portrait)</option>
+                  <option value="10x8">10×8 (Wide Portrait)</option>
+                </optgroup>
+              </select>
+            ) : (
+              <div className="flex space-x-2">
+                <select
+                  value={boardRows}
+                  onChange={(e) => setBoardRows(Number(e.target.value))}
+                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  disabled={isLoading}
+                >
+                  {[3, 4, 5, 6, 7, 8, 9, 10].map(num => (
+                    <option key={num} value={num}>{num}</option>
+                  ))}
+                </select>
+                <span className="flex items-center text-gray-500 dark:text-gray-400">×</span>
+                <select
+                  value={boardCols}
+                  onChange={(e) => setBoardCols(Number(e.target.value))}
+                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  disabled={isLoading}
+                >
+                  {[3, 4, 5, 6, 7, 8, 9, 10].map(num => (
+                    <option key={num} value={num}>{num}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Current: {boardRows}×{boardCols} ({boardRows * boardCols} cells)
+            </p>
           </div>
         </div>
 

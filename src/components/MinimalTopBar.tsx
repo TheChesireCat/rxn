@@ -20,16 +20,40 @@ export function MinimalTopBar({
   onMenuClick,
   showMenu = true
 }: MinimalTopBarProps) {
-  const [copied, setCopied] = useState(false);
+  const [copiedId, setCopiedId] = useState(false);
+  const [copiedName, setCopiedName] = useState(false);
+  const [copiedUrl, setCopiedUrl] = useState(false);
   const router = useRouter();
 
   const handleCopyRoomId = async () => {
     try {
       await navigator.clipboard.writeText(roomId);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setCopiedId(true);
+      setTimeout(() => setCopiedId(false), 2000);
     } catch (error) {
       console.error('Failed to copy room ID:', error);
+    }
+  };
+
+  const handleCopyRoomName = async () => {
+    if (!room?.name) return;
+    try {
+      await navigator.clipboard.writeText(room.name);
+      setCopiedName(true);
+      setTimeout(() => setCopiedName(false), 2000);
+    } catch (error) {
+      console.error('Failed to copy room name:', error);
+    }
+  };
+
+  const handleCopyRoomUrl = async () => {
+    const url = `${window.location.origin}/room/${roomId}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedUrl(true);
+      setTimeout(() => setCopiedUrl(false), 2000);
+    } catch (error) {
+      console.error('Failed to copy room URL:', error);
     }
   };
 
@@ -106,23 +130,64 @@ export function MinimalTopBar({
           {getCenterContent()}
         </div>
 
-        {/* Right: Room ID */}
-        <div className="flex items-center">
+        {/* Right: Room Info */}
+        <div className="flex items-center gap-1">
+          {/* Room Name */}
+          {room?.name && (
+            <button
+              onClick={handleCopyRoomName}
+              className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-green-50 dark:bg-green-900/30 hover:bg-green-100 dark:hover:bg-green-900/50 transition-all duration-200 group"
+              aria-label="Copy room name"
+              title={`Copy room name: ${room.name}`}
+            >
+              <span className="text-xs font-medium text-green-700 dark:text-green-300 max-w-20 truncate hidden sm:inline">
+                {room.name}
+              </span>
+              <span className="text-xs font-medium text-green-700 dark:text-green-300 sm:hidden">
+                Name
+              </span>
+              {copiedName ? (
+                <Check className="w-3 h-3 text-green-600 dark:text-green-400" />
+              ) : (
+                <Copy className="w-3 h-3 text-green-500 dark:text-green-400 group-hover:text-green-700 dark:group-hover:text-green-300" />
+              )}
+            </button>
+          )}
+          
+          {/* Room URL */}
+          <button
+            onClick={handleCopyRoomUrl}
+            className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-purple-50 dark:bg-purple-900/30 hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-all duration-200 group"
+            aria-label="Copy room URL"
+            title={`Copy room URL`}
+          >
+            <span className="text-xs font-medium text-purple-700 dark:text-purple-300">
+              URL
+            </span>
+            {copiedUrl ? (
+              <Check className="w-3 h-3 text-green-600 dark:text-green-400" />
+            ) : (
+              <Copy className="w-3 h-3 text-purple-500 dark:text-purple-400 group-hover:text-purple-700 dark:group-hover:text-purple-300" />
+            )}
+          </button>
+          
+          {/* Room ID */}
           <button
             onClick={handleCopyRoomId}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-200 group"
+            className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all duration-200 group"
             aria-label="Copy room ID"
+            title={`Copy room ID: ${roomId}`}
           >
-            <span className="text-xs font-mono text-gray-600 dark:text-gray-400 hidden sm:inline">
-              Room:
+            <span className="text-xs font-mono text-blue-700 dark:text-blue-300 hidden sm:inline">
+              ID: {roomId.slice(0, 6)}
             </span>
-            <span className="text-xs font-mono text-gray-800 dark:text-gray-200">
-              {roomId.slice(0, 8)}
+            <span className="text-xs font-mono text-blue-700 dark:text-blue-300 sm:hidden">
+              ID
             </span>
-            {copied ? (
-              <Check className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
+            {copiedId ? (
+              <Check className="w-3 h-3 text-green-600 dark:text-green-400" />
             ) : (
-              <Copy className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300" />
+              <Copy className="w-3 h-3 text-blue-500 dark:text-blue-400 group-hover:text-blue-700 dark:group-hover:text-blue-300" />
             )}
           </button>
         </div>

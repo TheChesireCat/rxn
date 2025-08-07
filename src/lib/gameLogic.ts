@@ -349,9 +349,9 @@ export function checkTimeouts(
     ? (now - gameStartTime) > (settings.gameTimeLimit * 60 * 1000)
     : false;
   
-  // Check move time limit
+  // Check move time limit (with 1 second tolerance for network delays)
   const isMoveTimeout = settings.moveTimeLimit
-    ? (now - gameState.turnStartedAt) > (settings.moveTimeLimit * 1000)
+    ? (now - gameState.turnStartedAt) > ((settings.moveTimeLimit - 1) * 1000)
     : false;
   
   let winner: string | undefined;

@@ -68,6 +68,7 @@ class GameErrorBoundary extends React.Component<
 export function GameProvider({ children, roomId }: GameProviderProps) {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [sessionValidated, setSessionValidated] = useState(false);
 
   // Get current user session
   const currentUser = SessionManager.getCurrentUser();
@@ -86,10 +87,44 @@ export function GameProvider({ children, roomId }: GameProviderProps) {
   // Manage presence for the current user
   const { setPresence, clearPresence } = usePresence(roomId, currentUser?.id);
 
-  // Update loading state
+  // Validate user session (especially for claimed users)
   useEffect(() => {
-    setIsLoading(queryLoading);
-  }, [queryLoading]);
+    const validateUserSession = async () => {
+      if (!currentUser) {
+        setSessionValidated(true);
+        return;
+      }
+
+      try {
+        const validation = await SessionManager.validateClaimedUser();
+        
+        if (!validation.isValid) {
+          if (validation.needsReauth && validation.email) {
+            // Set error message prompting re-authentication
+            setError(
+              `Your session expired. Please sign in again with your username "${currentUser.name}" to continue.`
+            );
+            console.log('User needs re-authentication:', validation.email);
+          } else {
+            // Clear invalid auth state
+            SessionManager.handleInvalidAuth();
+            console.log('Cleared invalid authentication state');
+          }
+        }
+      } catch (err) {
+        console.error('Session validation error:', err);
+      } finally {
+        setSessionValidated(true);
+      }
+    };
+
+    validateUserSession();
+  }, [currentUser]);
+
+  // Update loading state - wait for both query and session validation
+  useEffect(() => {
+    setIsLoading(queryLoading || !sessionValidated);
+  }, [queryLoading, sessionValidated]);
 
   // Handle query errors
   useEffect(() => {
@@ -104,7 +139,7 @@ export function GameProvider({ children, roomId }: GameProviderProps) {
 
   // Set presence when user and room are available
   useEffect(() => {
-    if (currentUser && room && gameState) {
+    if (currentUser && room && gameState && sessionValidated) {
       // Determine if user is a player or spectator
       const isPlayer = gameState.players.some((p: any) => p.id === currentUser.id);
       const role = isPlayer ? 'player' : 'spectator';
@@ -113,6 +148,10 @@ export function GameProvider({ children, roomId }: GameProviderProps) {
         name: currentUser.name,
         role,
         userId: currentUser.id,
+        // Enhanced presence data for claimed users
+        isClaimed: currentUser.isClaimed || false,
+        email: currentUser.email,
+        claimedAt: currentUser.nameClaimedAt,
       });
 
       // Cleanup presence on unmount
@@ -120,7 +159,7 @@ export function GameProvider({ children, roomId }: GameProviderProps) {
         clearPresence();
       };
     }
-  }, [currentUser, room, gameState, setPresence, clearPresence]);
+  }, [currentUser, room, gameState, sessionValidated, setPresence, clearPresence]);
 
   // Make a move
   const makeMove = useCallback(async (row: number, col: number) => {

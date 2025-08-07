@@ -74,12 +74,12 @@ function createInitialGrid(rows: number, cols: number): Cell[][] {
   return grid;
 }
 
-function createInitialGameState(settings: RoomSettings, hostId: string): GameState {
+function createInitialGameState(settings: RoomSettings, hostId: string, hostName: string): GameState {
   return {
     grid: createInitialGrid(settings.boardSize.rows, settings.boardSize.cols),
     players: [{
       id: hostId,
-      name: '', // Will be set when host joins
+      name: hostName,
       color: PLAYER_COLORS[0],
       orbCount: 0,
       isEliminated: false,
@@ -94,12 +94,12 @@ function createInitialGameState(settings: RoomSettings, hostId: string): GameSta
 
 export async function POST(request: NextRequest) {
   try {
-    const body: CreateRoomRequest & { hostId: string } = await request.json();
+    const body: CreateRoomRequest & { hostId: string; hostName: string } = await request.json();
     
     // Validate required fields
-    if (!body.name || !body.settings || !body.hostId) {
+    if (!body.name || !body.settings || !body.hostId || !body.hostName) {
       return NextResponse.json(
-        { success: false, error: 'Missing required fields: name, settings, hostId' },
+        { success: false, error: 'Missing required fields: name, settings, hostId, hostName' },
         { status: 400 }
       );
     }
@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create initial game state
-    const gameState = createInitialGameState(body.settings, body.hostId);
+    const gameState = createInitialGameState(body.settings, body.hostId, body.hostName);
     
     // Generate unique room ID
     const roomId = crypto.randomUUID();

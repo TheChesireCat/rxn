@@ -118,17 +118,22 @@ export function MoveTimer({
             />
           </div>
           
-          {isExpired && (
-            <div className="mt-1 text-xs text-red-600 dark:text-red-400 font-medium">
-              Time&apos;s up!
-            </div>
-          )}
-          
-          {!isCurrentPlayerTurn && (
-            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              Waiting for player
-            </div>
-          )}
+          {/* Always reserve space for status text to prevent layout shifts */}
+          <div className="mt-1 h-4 flex items-center justify-center">
+            {isExpired ? (
+              <span className="text-xs text-red-600 dark:text-red-400 font-medium">
+                Time&apos;s up!
+              </span>
+            ) : !isCurrentPlayerTurn ? (
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                Waiting for player
+              </span>
+            ) : (
+              <span className="text-xs text-transparent">
+                &nbsp;
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </div>

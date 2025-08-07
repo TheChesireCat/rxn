@@ -16,7 +16,7 @@ export function LobbyView({ room, currentUser, onRoomUpdate }: LobbyViewProps) {
   const router = useRouter();
   const [isStarting, setIsStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [copySuccess, setCopySuccess] = useState(false);
+  const [copySuccess, setCopySuccess] = useState<'id' | 'url' | 'name' | null>(null);
 
   // Get real-time presence data
   const { connectedUsers, connectedSpectators, setPresence } = usePresence(room.id, currentUser.id);
@@ -101,8 +101,8 @@ export function LobbyView({ room, currentUser, onRoomUpdate }: LobbyViewProps) {
   const handleCopyRoomId = async () => {
     try {
       await navigator.clipboard.writeText(room.id);
-      setCopySuccess(true);
-      setTimeout(() => setCopySuccess(false), 2000);
+      setCopySuccess('id');
+      setTimeout(() => setCopySuccess(null), 2000);
     } catch (err) {
       // Fallback for older browsers
       const textArea = document.createElement('textarea');
@@ -111,8 +111,45 @@ export function LobbyView({ room, currentUser, onRoomUpdate }: LobbyViewProps) {
       textArea.select();
       document.execCommand('copy');
       document.body.removeChild(textArea);
-      setCopySuccess(true);
-      setTimeout(() => setCopySuccess(false), 2000);
+      setCopySuccess('id');
+      setTimeout(() => setCopySuccess(null), 2000);
+    }
+  };
+
+  const handleCopyRoomUrl = async () => {
+    const url = `${window.location.origin}/room/${room.id}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopySuccess('url');
+      setTimeout(() => setCopySuccess(null), 2000);
+    } catch (err) {
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = url;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopySuccess('url');
+      setTimeout(() => setCopySuccess(null), 2000);
+    }
+  };
+
+  const handleCopyRoomName = async () => {
+    try {
+      await navigator.clipboard.writeText(room.name);
+      setCopySuccess('name');
+      setTimeout(() => setCopySuccess(null), 2000);
+    } catch (err) {
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = room.name;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopySuccess('name');
+      setTimeout(() => setCopySuccess(null), 2000);
     }
   };
 
@@ -136,17 +173,50 @@ export function LobbyView({ room, currentUser, onRoomUpdate }: LobbyViewProps) {
             </p>
             
             {/* Room sharing */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6">
-              <div className="flex items-center bg-white dark:bg-gray-800 rounded-lg px-4 py-2 border border-gray-200 dark:border-gray-700">
-                <span className="text-sm text-gray-600 dark:text-gray-400 mr-2">Room ID:</span>
-                <code className="text-sm font-mono text-gray-900 dark:text-white">{room.id}</code>
+            <div className="mb-6 space-y-3">
+              {/* Room ID */}
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
+                <div className="flex items-center bg-white dark:bg-gray-800 rounded-lg px-4 py-2 border border-gray-200 dark:border-gray-700 min-w-[280px]">
+                  <span className="text-sm text-gray-600 dark:text-gray-400 mr-2">Room ID:</span>
+                  <code className="text-sm font-mono text-gray-900 dark:text-white truncate">{room.id}</code>
+                </div>
+                <button
+                  onClick={handleCopyRoomId}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors duration-200 text-sm font-medium min-w-[120px]"
+                >
+                  {copySuccess === 'id' ? '✓ Copied!' : 'Copy ID'}
+                </button>
               </div>
-              <button
-                onClick={handleCopyRoomId}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors duration-200 text-sm font-medium"
-              >
-                {copySuccess ? 'Copied!' : 'Copy Room ID'}
-              </button>
+              
+              {/* Room URL */}
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
+                <div className="flex items-center bg-white dark:bg-gray-800 rounded-lg px-4 py-2 border border-gray-200 dark:border-gray-700 min-w-[280px]">
+                  <span className="text-sm text-gray-600 dark:text-gray-400 mr-2">Room URL:</span>
+                  <code className="text-sm font-mono text-gray-900 dark:text-white truncate">
+                    {typeof window !== 'undefined' ? `${window.location.origin}/room/${room.id}`.slice(0, 30) + '...' : ''}
+                  </code>
+                </div>
+                <button
+                  onClick={handleCopyRoomUrl}
+                  className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors duration-200 text-sm font-medium min-w-[120px]"
+                >
+                  {copySuccess === 'url' ? '✓ Copied!' : 'Copy URL'}
+                </button>
+              </div>
+              
+              {/* Room Name */}
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
+                <div className="flex items-center bg-white dark:bg-gray-800 rounded-lg px-4 py-2 border border-gray-200 dark:border-gray-700 min-w-[280px]">
+                  <span className="text-sm text-gray-600 dark:text-gray-400 mr-2">Room Name:</span>
+                  <span className="text-sm font-medium text-gray-900 dark:text-white truncate">{room.name}</span>
+                </div>
+                <button
+                  onClick={handleCopyRoomName}
+                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors duration-200 text-sm font-medium min-w-[120px]"
+                >
+                  {copySuccess === 'name' ? '✓ Copied!' : 'Copy Name'}
+                </button>
+              </div>
             </div>
           </div>
 

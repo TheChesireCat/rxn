@@ -16,7 +16,13 @@
     "instant:push": "npx @instantdb/cli push",
     "instant:setup": "node setup-instant.js",
     "instant:login": "npx @instantdb/cli login",
-    "instant:init": "npx @instantdb/cli init"
+    "instant:init": "npx @instantdb/cli init",
+    "perms:update": "bash scripts/update-perms.sh",
+    "perms:dev": "cp instant.perms.new.ts instant.perms.ts && echo '✅ Development permissions set'",
+    "perms:prod": "cp instant.perms.production.ts instant.perms.ts && echo '✅ Production permissions set'",
+    "auth:setup": "node scripts/setup-auth.js",
+    "auth:test": "node scripts/test-auth.js",
+    "instant:auth-test": "node test-instant-auth.js"
   },
   "dependencies": {
     "@instantdb/admin": "^0.20.18",

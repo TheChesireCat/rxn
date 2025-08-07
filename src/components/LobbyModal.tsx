@@ -116,9 +116,9 @@ export function LobbyModal({
           
           <div className="space-y-2">
             {activePlayers.map((player) => {
-              const isOnline = onlineUsers.has(player.userId);
-              const isYou = player.userId === currentUserId;
-              const isPlayerHost = player.userId === room.hostId;
+              const isOnline = onlineUsers.has(player.id);
+              const isYou = player.id === currentUserId;
+              const isPlayerHost = player.id === room.hostId;
               
               return (
                 <div

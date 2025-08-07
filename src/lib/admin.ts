@@ -1,5 +1,5 @@
 import { init } from '@instantdb/admin';
-import schema from '../../instant.schema';
+import schema from '../../instant.schema.ts';
 
 // Initialize InstantDB Admin SDK for server-side operations
 const APP_ID = process.env.NEXT_PUBLIC_INSTANT_APP_ID;
@@ -21,4 +21,4 @@ export const adminDb = init({
 });
 
 // Export types for use throughout the application
-export type { AppSchema } from '../../instant.schema';
+export type { AppSchema } from '../../instant.schema.ts';

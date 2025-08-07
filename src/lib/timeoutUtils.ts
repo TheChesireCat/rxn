@@ -45,7 +45,13 @@ export async function handleMoveTimeout(roomId: string): Promise<void> {
     const result: ApiResponse = await response.json();
     
     if (!result.success) {
-      console.error('Move timeout handling failed:', result.error);
+      // Only log as warning if it's not a "no timeout detected" error
+      // This can happen due to timing differences between client and server
+      if (result.error !== 'No move timeout detected') {
+        console.error('Move timeout handling failed:', result.error);
+      } else {
+        console.warn('Move timeout not detected on server (timing difference):', result.error);
+      }
     }
   } catch (error) {
     console.error('Failed to handle move timeout:', error);
