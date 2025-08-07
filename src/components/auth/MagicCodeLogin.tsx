@@ -20,7 +20,7 @@ interface LoginState {
   isLoading: boolean;
   loadingAction?: string;
   error: string | null;
-  errorType?: 'validation' | 'auth' | 'network' | 'general';
+  errorType?: 'validation' | 'auth' | 'network' | 'general' | 'availability' | 'rate-limit';
   suggestions?: string[];
   canRetry?: boolean;
   retryAction?: 'resend' | 'back' | 'retry';
@@ -124,7 +124,7 @@ export function MagicCodeLogin({ onAuthenticated, initialUsername = '' }: MagicC
           setState(prev => ({
             ...prev,
             suggestions: result.suggestions || [],
-            errorType: result.errorType,
+            errorType: result.errorType as LoginState['errorType'],
           }));
         } else {
           // Clear suggestions if username is available or claimed
@@ -200,7 +200,7 @@ export function MagicCodeLogin({ onAuthenticated, initialUsername = '' }: MagicC
           setState(prev => ({ 
             ...prev, 
             error: result.error || 'Failed to send code', 
-            errorType: result.errorType,
+            errorType: result.errorType as LoginState['errorType'],
             canRetry: result.canRetry,
             retryAction: 'retry',
             step: 'username',
@@ -253,7 +253,12 @@ export function MagicCodeLogin({ onAuthenticated, initialUsername = '' }: MagicC
       if (result.success) {
         setState(prev => ({ ...prev, step: 'code', isLoading: false }));
       } else {
-        setState(prev => ({ ...prev, error: result.error || 'Failed to send code', isLoading: false }));
+        setState(prev => ({ 
+          ...prev, 
+          error: result.error || 'Failed to send code', 
+          errorType: (result.errorType as LoginState['errorType']) || 'general',
+          isLoading: false 
+        }));
       }
     } catch (error) {
       setState(prev => ({
@@ -372,7 +377,7 @@ export function MagicCodeLogin({ onAuthenticated, initialUsername = '' }: MagicC
       
       // Parse the error message
       let errorMessage = 'Authentication failed. Please try again.';
-      let errorType: 'auth' | 'network' | 'general' = 'general';
+      let errorType: LoginState['errorType'] = 'general';
       let canRetry = true;
       let retryAction: 'retry' | 'resend' | 'back' = 'retry';
 
@@ -456,8 +461,8 @@ export function MagicCodeLogin({ onAuthenticated, initialUsername = '' }: MagicC
           ...prev,
           isLoading: false,
           loadingAction: undefined,
-          error: result.success ? null : result.error,
-          errorType: result.success ? undefined : result.errorType,
+          error: result.success ? null : (result.error || 'An error occurred'),
+          errorType: result.success ? undefined : (result.errorType as LoginState['errorType']),
           canRetry: result.success ? false : result.canRetry,
         }));
       } catch (error) {
@@ -582,7 +587,7 @@ export function MagicCodeLogin({ onAuthenticated, initialUsername = '' }: MagicC
           {state.error && state.errorType === 'availability' && (
             <ErrorDisplay
               error={state.error}
-              type="general"
+              type="validation"
               suggestions={state.suggestions}
               onSuggestionClick={handleSuggestionClick}
             />
@@ -629,7 +634,12 @@ export function MagicCodeLogin({ onAuthenticated, initialUsername = '' }: MagicC
           {state.error && (
             <ErrorDisplay
               error={state.error}
-              type={state.errorType || 'general'}
+              type={(() => {
+                // Map additional error types to base types for ErrorDisplay
+                if (state.errorType === 'availability') return 'validation';
+                if (state.errorType === 'rate-limit') return 'network';
+                return state.errorType || 'general';
+              })()}
               onRetry={state.canRetry && state.retryAction ? handleRetry : undefined}
               onBack={handleBack}
             />
