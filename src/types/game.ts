@@ -22,6 +22,7 @@ export interface GameState {
   turnStartedAt: number;
   status: 'lobby' | 'active' | 'finished' | 'runaway';
   winner?: string;
+  lastMove?: { row: number; col: number; playerId: string };
 }
 
 export interface RoomSettings {

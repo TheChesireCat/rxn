@@ -7,6 +7,7 @@ import { JoinGameForm } from './JoinGameForm';
 import { EnhancedAuthForm } from './auth/EnhancedAuthForm';
 import { RejoinGamePrompt } from './RejoinGamePrompt';
 import { ClaimUsernameButton } from './ClaimUsernameButton';
+import { TutorialModal } from './TutorialModal';
 import type { User } from '@/types/game';
 
 type ViewMode = 'main' | 'create' | 'join' | 'userSetup';
@@ -16,13 +17,14 @@ export function HomePage() {
   const [viewMode, setViewMode] = useState<ViewMode>('main');
   const [hasActiveGame, setHasActiveGame] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [showTutorial, setShowTutorial] = useState(false);
 
   useEffect(() => {
     // Check for existing session
     const session = SessionManager.getSession();
     if (session) {
       setCurrentUser(session.user);
-      
+
       // Check if there's an active game and validate it exists
       const checkActiveGame = async () => {
         const activeRoom = SessionManager.getActiveRoom();
@@ -31,7 +33,7 @@ export function HomePage() {
             // Validate the room still exists
             const response = await fetch(`/api/room/${activeRoom.roomId}`);
             const result = await response.json();
-            
+
             if (result.success && result.data) {
               setHasActiveGame(true);
             } else {
@@ -47,7 +49,7 @@ export function HomePage() {
         }
         setIsLoading(false);
       };
-      
+
       checkActiveGame();
     } else {
       setIsLoading(false);
@@ -60,7 +62,7 @@ export function HomePage() {
     SessionManager.storeSession(user);
     setViewMode('main');
   };
-  
+
   const handleGuestUserCreated = async (username: string) => {
     try {
       // Create an unclaimed user for guest play
@@ -99,7 +101,7 @@ export function HomePage() {
         // Continue with logout even if InstantDB sign out fails
       }
     }
-    
+
     // Clear local session
     SessionManager.clearSession();
     setCurrentUser(null);
@@ -113,7 +115,7 @@ export function HomePage() {
         {/* Animated background orbs - smaller and further from edges */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute top-[35%] left-[15%] w-32 h-32 sm:w-48 sm:h-48 bg-blue-300 dark:bg-blue-600 rounded-full opacity-20 animate-pulse"></div>
-          <div className="absolute bottom-[30%] right-[20%] w-24 h-24 sm:w-36 sm:h-36 bg-purple-300 dark:bg-purple-600 rounded-full opacity-20 animate-pulse" style={{animationDelay: '0.7s'}}></div>
+          <div className="absolute bottom-[30%] right-[20%] w-24 h-24 sm:w-36 sm:h-36 bg-purple-300 dark:bg-purple-600 rounded-full opacity-20 animate-pulse" style={{ animationDelay: '0.7s' }}></div>
         </div>
         <div className="text-center relative z-10">
           <div className="relative mb-6">
@@ -133,17 +135,17 @@ export function HomePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 overflow-hidden relative">
-      
+
       {/* Animated background orbs - smaller and further from edges */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[35%] left-[15%] w-32 h-32 sm:w-48 sm:h-48 bg-blue-300 dark:bg-blue-600 rounded-full opacity-20 animate-pulse"></div>
-        <div className="absolute bottom-[30%] right-[20%] w-24 h-24 sm:w-36 sm:h-36 bg-purple-300 dark:bg-purple-600 rounded-full opacity-20 animate-pulse" style={{animationDelay: '0.7s'}}></div>
-        <div className="absolute top-[60%] left-[70%] w-20 h-20 sm:w-28 sm:h-28 bg-pink-300 dark:bg-pink-600 rounded-full opacity-20 animate-pulse" style={{animationDelay: '1s'}}></div>
-        <div className="absolute top-[20%] right-[35%] w-16 h-16 sm:w-24 sm:h-24 bg-green-300 dark:bg-green-600 rounded-full opacity-15 animate-pulse" style={{animationDelay: '1.3s'}}></div>
+        <div className="absolute bottom-[30%] right-[20%] w-24 h-24 sm:w-36 sm:h-36 bg-purple-300 dark:bg-purple-600 rounded-full opacity-20 animate-pulse" style={{ animationDelay: '0.7s' }}></div>
+        <div className="absolute top-[60%] left-[70%] w-20 h-20 sm:w-28 sm:h-28 bg-pink-300 dark:bg-pink-600 rounded-full opacity-20 animate-pulse" style={{ animationDelay: '1s' }}></div>
+        <div className="absolute top-[20%] right-[35%] w-16 h-16 sm:w-24 sm:h-24 bg-green-300 dark:bg-green-600 rounded-full opacity-15 animate-pulse" style={{ animationDelay: '1.3s' }}></div>
       </div>
-      
+
       <div className="container mx-auto px-4 py-8 sm:py-16 relative z-10">
-        
+
         {/* Enhanced Header */}
         <div className="text-center mb-8 sm:mb-12">
           <div className="mb-6">
@@ -152,18 +154,33 @@ export function HomePage() {
             </h1>
             <div className="w-24 h-1 bg-gradient-to-r from-blue-500 to-purple-500 mx-auto rounded-full"></div>
           </div>
-          <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 mb-6 sm:mb-8 max-w-2xl mx-auto">
+          <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 mb-4 sm:mb-6 max-w-2xl mx-auto">
             A clone of the classic{' '}
-            <a 
-              href="https://brilliant.org/wiki/chain-reaction-game/" 
-              target="_blank" 
+            <a
+              href="https://brilliant.org/wiki/chain-reaction-game/"
+              target="_blank"
               rel="noopener noreferrer"
               className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 underline underline-offset-2 hover:underline-offset-4 transition-all duration-200"
             >
               Chain Reaction game
             </a>
           </p>
-          
+
+          {/* Tutorial prompt */}
+          <div className="mb-6 sm:mb-8">
+            <div className="glass backdrop-blur-sm rounded-lg px-4 py-3 shadow-lg border border-gray-200/50 dark:border-gray-700/50 max-w-md mx-auto">
+              <p className="text-sm text-gray-600 dark:text-gray-400 text-center">
+                <strong className="text-gray-800 dark:text-gray-200">NOTE:</strong> If this is your first time playing{' '}
+                <button
+                  onClick={() => setShowTutorial(true)}
+                  className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 underline underline-offset-2 hover:underline-offset-4 transition-all duration-200 font-medium"
+                >
+                  click here
+                </button>
+              </p>
+            </div>
+          </div>
+
           {/* Enhanced user info and logout */}
           {currentUser && (
             <div className="flex items-center justify-center gap-4 mb-6">
@@ -173,11 +190,10 @@ export function HomePage() {
                     Welcome back, <strong className="text-blue-600 dark:text-blue-400">{currentUser.name}</strong>
                   </span>
                   {/* User status indicator */}
-                  <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
-                    currentUser.isClaimed 
+                  <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${currentUser.isClaimed
                       ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
                       : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
-                  }`}>
+                    }`}>
                     {currentUser.isClaimed ? (
                       <>
                         <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
@@ -217,13 +233,13 @@ export function HomePage() {
               {/* Claim username prompt for successful guest users */}
               {!currentUser.isClaimed && currentUser.wins > 0 && (
                 <div className="mb-6">
-                  <ClaimUsernameButton 
-                    user={currentUser} 
+                  <ClaimUsernameButton
+                    user={currentUser}
                     onClaimed={() => {
                       // Refresh user data after claiming
                       const updatedUser = { ...currentUser, isClaimed: true };
                       handleUserAuthenticated(updatedUser);
-                    }} 
+                    }}
                   />
                 </div>
               )}
@@ -241,7 +257,7 @@ export function HomePage() {
                   <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6 text-center">
                     Choose Your Action
                   </h2>
-                  
+
                   <div className="space-y-4">
                     {/* Enhanced Create Game Button */}
                     <button
@@ -255,7 +271,7 @@ export function HomePage() {
                         <span className="text-lg">Create New Game</span>
                       </div>
                     </button>
-                    
+
                     {/* Enhanced Join Game Button */}
                     <button
                       onClick={() => setViewMode('join')}
@@ -283,7 +299,7 @@ export function HomePage() {
               {/* Create game form */}
               {viewMode === 'create' && (
                 <div className="glass backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 dark:border-gray-700/50">
-                  <CreateGameForm 
+                  <CreateGameForm
                     currentUser={currentUser}
                     onBack={handleBackToMain}
                   />
@@ -293,7 +309,7 @@ export function HomePage() {
               {/* Join game form */}
               {viewMode === 'join' && (
                 <div className="glass backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 dark:border-gray-700/50">
-                  <JoinGameForm 
+                  <JoinGameForm
                     currentUser={currentUser}
                     onBack={handleBackToMain}
                   />
@@ -303,6 +319,12 @@ export function HomePage() {
           )}
         </div>
       </div>
+
+      {/* Tutorial Modal */}
+      <TutorialModal
+        isOpen={showTutorial}
+        onClose={() => setShowTutorial(false)}
+      />
     </div>
   );
 }

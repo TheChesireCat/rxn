@@ -107,6 +107,9 @@ export async function POST(request: NextRequest) {
     }
 
     const newGameState = moveResult.newGameState!;
+    
+    // Add the last move information for animation synchronization
+    newGameState.lastMove = { row, col, playerId };
 
     // Prepare history entry for undo functionality
     const historyEntry = {
