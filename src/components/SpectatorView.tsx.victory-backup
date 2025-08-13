@@ -30,13 +30,6 @@ export function SpectatorView({
   gameStartTime,
   roomSettings,
 }: SpectatorViewProps) {
-  // Display state for delayed victory - starts with real game state
-  const [displayGameState, setDisplayGameState] = React.useState(gameState);
-  
-  // Update display state when game state changes (fallback for non-animated changes)
-  React.useEffect(() => {
-    setDisplayGameState(gameState);
-  }, [gameState]);
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 lg:py-8">
@@ -63,10 +56,10 @@ export function SpectatorView({
               </div>
             </div>
 
-            {/* Victory message - shown when game is finished (uses display state for proper timing) */}
-            {(displayGameState.status === 'finished' || displayGameState.status === 'runaway') && (
+            {/* Victory message - shown when game is finished */}
+            {(gameState.status === 'finished' || gameState.status === 'runaway') && (
               <VictoryMessage 
-                gameState={displayGameState} 
+                gameState={gameState} 
                 currentUserId={currentUserId}
                 className="mb-4"
               />
@@ -183,7 +176,6 @@ export function SpectatorView({
                     currentUserId={currentUserId}
                     roomId={roomId}
                     disabled={true} // Always disabled for spectators
-                    onDisplayStateChange={setDisplayGameState}
                   />
                 </div>
               </div>

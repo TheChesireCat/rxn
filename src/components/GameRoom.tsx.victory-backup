@@ -36,14 +36,6 @@ function GameRoomContent({ currentUserId, roomId }: { currentUserId: string; roo
   const router = useRouter();
   const { room, gameState, isLoading, error, makeMove, undoMove, refreshRoom } = useGameContext();
   
-  // Display state for delayed victory - starts with real game state
-  const [displayGameState, setDisplayGameState] = useState(gameState);
-  
-  // Update display state when game state changes (fallback for non-animated changes)
-  useEffect(() => {
-    setDisplayGameState(gameState);
-  }, [gameState]);
-  
   // Modal states - ALL useState hooks at the top
   const [showPlayers, setShowPlayers] = useState(false);
   const [showChat, setShowChat] = useState(false);
@@ -287,11 +279,11 @@ function GameRoomContent({ currentUserId, roomId }: { currentUserId: string; roo
       {/* Main Game Area - centered and clean */}
       <div className="pt-16 pb-24 px-4 flex items-center justify-center min-h-screen">
         <div className="w-full max-w-7xl">
-          {/* Victory message - overlaid when game ends (uses display state for proper timing) */}
-          {(displayGameState.status === 'finished' || displayGameState.status === 'runaway') && (
+          {/* Victory message - overlaid when game ends */}
+          {(gameState.status === 'finished' || gameState.status === 'runaway') && (
             <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
               <VictoryMessage 
-                gameState={displayGameState} 
+                gameState={gameState} 
                 currentUserId={currentUserId}
                 room={room}
               />
@@ -305,7 +297,6 @@ function GameRoomContent({ currentUserId, roomId }: { currentUserId: string; roo
             roomId={room.id}
             onMove={makeMove}
             disabled={!isGameActive}
-            onDisplayStateChange={setDisplayGameState}
           />
 
           {/* Move Timer - prominently displayed during gameplay */}

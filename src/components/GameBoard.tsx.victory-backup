@@ -24,7 +24,6 @@ interface GameBoardProps {
   roomId: string;
   onMove?: (row: number, col: number) => Promise<void>;
   disabled?: boolean;
-  onDisplayStateChange?: (state: GameState) => void;
 }
 
 export function GameBoard({
@@ -33,7 +32,6 @@ export function GameBoard({
   roomId,
   onMove,
   disabled = false,
-  onDisplayStateChange,
 }: GameBoardProps) {
   const [isSubmittingMove, setIsSubmittingMove] = useState(false);
   const [lastMoveError, setLastMoveError] = useState<string | null>(null);
@@ -111,14 +109,14 @@ export function GameBoard({
           }
         }
       }
-
+      
       if (unstableCells.length === 0) break;
 
-      explosionWaves.push({
-        explodingCells: [...unstableCells],
-        gridState: gridForCurrentWave.map(row => row.map(cell => ({ ...cell })))
+      explosionWaves.push({ 
+        explodingCells: [...unstableCells], 
+        gridState: gridForCurrentWave.map(row => row.map(cell => ({ ...cell }))) 
       });
-
+      
       const gridForNextWave = gridForCurrentWave.map(row => row.map(cell => ({ ...cell })));
 
       unstableCells.forEach(({ row, col }) => {
@@ -129,30 +127,30 @@ export function GameBoard({
           gridForNextWave[adj.row][adj.col].ownerId = playerId;
         });
       });
-
-      unstableCells.forEach(({ row, col }) => {
+      
+      unstableCells.forEach(({ row, col }) => { 
         if (gridForNextWave[row][col].orbs <= 0) {
           gridForNextWave[row][col].ownerId = undefined;
         }
       });
-
+      
       gridForCurrentWave = gridForNextWave;
       wave++;
     }
-
+    
     if (wave >= maxWaves) {
       console.warn(`Hit maximum wave limit of ${maxWaves}. Chain reaction may be incomplete.`);
     }
-
+    
     return { finalGrid: gridForCurrentWave, explosionWaves };
   }
 
   // Detect new moves and trigger animations
   useEffect(() => {
     // Skip if no move info or if we already processed this move
-    if (!gameState.lastMove ||
-      (lastProcessedMove.current &&
-        lastProcessedMove.current.moveCount === gameState.moveCount)) {
+    if (!gameState.lastMove || 
+        (lastProcessedMove.current && 
+         lastProcessedMove.current.moveCount === gameState.moveCount)) {
       return;
     }
 
@@ -184,7 +182,7 @@ export function GameBoard({
 
     // Get the grid before the move (from display state, which hasn't updated yet)
     const gridBeforeMove = displayState.grid.map(r => r.map(c => ({ ...c })));
-
+    
     // Simulate placing the orb
     const gridAfterPlacement = gridBeforeMove.map(r => r.map(c => ({ ...c })));
     gridAfterPlacement[row][col] = {
@@ -199,7 +197,7 @@ export function GameBoard({
       // Just update the display state after a short delay for the placement animation
       setIsAnimating(true);
       setAnimatingGrid(gridAfterPlacement);
-
+      
       setTimeout(() => {
         setDisplayState(gameState);
         setAnimatingGrid(null);
@@ -210,7 +208,7 @@ export function GameBoard({
 
     // Explosions will happen - simulate them
     const { explosionWaves } = simulateExplosionsWithWaves(gridAfterPlacement, playerId);
-
+    
     if (explosionWaves.length === 0) {
       // No explosions after all, just update
       setDisplayState(gameState);
@@ -219,10 +217,10 @@ export function GameBoard({
 
     // Start animation sequence
     setIsAnimating(true);
-
+    
     // Show placement first
     setAnimatingGrid(gridAfterPlacement);
-
+    
     // After placement animation, start explosion waves
     setTimeout(() => {
       // Perform the "disappearance" step for the first wave
@@ -237,7 +235,7 @@ export function GameBoard({
         });
         setAnimatingGrid(gridBeforeExplosion);
       }
-
+      
       // Start wave animations after disappearance
       setTimeout(() => {
         waveDataRef.current = {
@@ -253,13 +251,6 @@ export function GameBoard({
     }, 50);
 
   }, [gameState.lastMove, gameState.moveCount, currentUserId, displayState.grid, isAnimating]);
-
-  // Notify parent about display state changes for victory timing
-  useEffect(() => {
-    if (onDisplayStateChange) {
-      onDisplayStateChange(displayState);
-    }
-  }, [displayState, onDisplayStateChange]);
 
   // Update display state when game state changes (but not during animations)
   useEffect(() => {
@@ -295,7 +286,7 @@ export function GameBoard({
       setIsAnimating(false);
       setWaveIndex(-1);
       waveDataRef.current = null;
-
+      
       // Clear pending move if this was our move
       if (pendingMove.current) {
         pendingMove.current = null;
@@ -311,28 +302,28 @@ export function GameBoard({
     const orbAnims: OrbAnimation[] = [];
 
     wave.explodingCells.forEach(({ row: fromRow, col: fromCol }: { row: number; col: number }) => {
-      explosionAnims.push({
-        row: fromRow,
-        col: fromCol,
-        color: playerColor,
-        delay: 0,
-        id: `exp-${waveIndex}-${fromRow}-${fromCol}`
+      explosionAnims.push({ 
+        row: fromRow, 
+        col: fromCol, 
+        color: playerColor, 
+        delay: 0, 
+        id: `exp-${waveIndex}-${fromRow}-${fromCol}` 
       });
-
+      
       const neighbors = getAdjacentCells(fromRow, fromCol, rows, cols);
       neighbors.forEach(({ row: toRow, col: toCol }) => {
-        orbAnims.push({
-          fromRow,
-          fromCol,
-          toRow,
-          toCol,
-          color: playerColor,
-          delay: 50,
-          id: `orb-${waveIndex}-${fromRow},${fromCol}-to-${toRow},${toCol}`
+        orbAnims.push({ 
+          fromRow, 
+          fromCol, 
+          toRow, 
+          toCol, 
+          color: playerColor, 
+          delay: 50, 
+          id: `orb-${waveIndex}-${fromRow},${fromCol}-to-${toRow},${toCol}` 
         });
       });
     });
-
+    
     setCurrentAnimations({ explosions: explosionAnims, orbs: orbAnims });
     setExplodingCells(new Set(wave.explodingCells.map((c: any) => `${c.row}-${c.col}`)));
 
@@ -412,7 +403,7 @@ export function GameBoard({
 
     // Mark as pending move
     pendingMove.current = { row, col };
-
+    
     // Submit to server immediately
     setIsSubmittingMove(true);
     setLastMoveError(null);
@@ -439,7 +430,7 @@ export function GameBoard({
 
   // Get current player info for display
   const currentPlayer = displayState.players.find(p => p.id === displayState.currentPlayerId);
-
+  
   // Grid to display (either animating grid or display state grid)
   const gridToDisplay = animatingGrid || displayState.grid;
 
@@ -474,7 +465,7 @@ export function GameBoard({
             border-2 border-gray-200 dark:border-gray-700
             transition-all duration-300
             ${pendingMove.current ? 'ring-2 ring-blue-400 ring-opacity-50' : ''}
-            ${displayState.winner ? 'ring-4 ring-green-500' : ''}
+            ${gameState.winner ? 'ring-4 ring-green-500' : ''}
           `}
           style={{
             background: currentPlayer && gameState.status === 'active'
