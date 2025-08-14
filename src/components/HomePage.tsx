@@ -170,12 +170,12 @@ export function HomePage() {
           <div className="mb-6 sm:mb-8">
             <div className="glass backdrop-blur-sm rounded-lg px-4 py-3 shadow-lg border border-gray-200/50 dark:border-gray-700/50 max-w-md mx-auto">
               <p className="text-sm text-gray-600 dark:text-gray-400 text-center">
-                <strong className="text-gray-800 dark:text-gray-200">PSSST:</strong> if this is your first time playing{' '}
+                <strong className="text-gray-800 dark:text-gray-200">PSSST, New here?</strong>{' '}
                 <button
                   onClick={() => setShowTutorial(true)}
-                  className="inline-flex items-center px-3 py-1 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-all duration-200 shadow-[0_0_10px_rgba(59,130,246,0.3)] hover:shadow-[0_0_15px_rgba(59,130,246,0.5)] animate-pulse"
+                  className="inline-flex items-center px-3 py-1 text-sm font-medium text-red-600 dark:text-red-400 bg-blue-50 dark:bg-blue-900/20 border border-red-200 dark:border-red-700 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-all duration-200 shadow-[0_0_10px_rgba(59,130,246,0.3)] hover:shadow-[0_0_15px_rgba(59,130,246,0.5)] animate-pulse"
                 >
-                  click here
+                  TUTORIAL
                 </button>
               </p>
             </div>
