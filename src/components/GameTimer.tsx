@@ -48,8 +48,9 @@ export function GameTimer({
     return () => clearInterval(interval);
   }, [gameStartTime, gameTimeLimit, isGameActive, onTimeout]);
 
+  // Always render the container to prevent layout shifts
   if (!gameTimeLimit || !isGameActive) {
-    return null;
+    return <div className={`${className} invisible`} />;
   }
 
   const minutes = Math.floor(timeRemaining / (60 * 1000));

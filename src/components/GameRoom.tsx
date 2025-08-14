@@ -45,7 +45,7 @@ function GameRoomContent({ currentUserId, roomId }: { currentUserId: string; roo
   // Update display state when game state changes (fallback for non-animated changes)
   // Only sync if GameBoard isn't managing the timing (no lastMove = no animations)
   useEffect(() => {
-    if (!gameState.lastMove) {
+    if (gameState && !gameState.lastMove) {
       setDisplayGameState(gameState);
     }
   }, [gameState]);
@@ -53,11 +53,11 @@ function GameRoomContent({ currentUserId, roomId }: { currentUserId: string; roo
   // Detect new game and force GameBoard remount
   useEffect(() => {
     // Detect new game (moveCount reset to 0 and status is active)
-    if (gameState.moveCount === 0 && gameState.status === 'active') {
+    if (gameState && gameState.moveCount === 0 && gameState.status === 'active') {
       setGameVersion(v => v + 1);
       setDisplayGameState(gameState); // Force reset display state
     }
-  }, [gameState.moveCount, gameState.status]);
+  }, [gameState?.moveCount, gameState?.status]);
 
   // Modal states - ALL useState hooks at the top
   const [showPlayers, setShowPlayers] = useState(false);
@@ -325,17 +325,15 @@ function GameRoomContent({ currentUserId, roomId }: { currentUserId: string; roo
           />
 
           {/* Move Timer - prominently displayed during gameplay */}
-          {room.settings.moveTimeLimit && isGameActive && (
-            <div className="mt-4 max-w-sm mx-auto">
-              <MoveTimer
-                turnStartedAt={gameState.turnStartedAt || Date.now()}
-                moveTimeLimit={room.settings.moveTimeLimit}
-                isCurrentPlayerTurn={gameState.currentPlayerId === currentUserId}
-                isGameActive={isGameActive}
-                onTimeout={onMoveTimeout}
-              />
-            </div>
-          )}
+          <div className="mt-4 max-w-sm mx-auto">
+            <MoveTimer
+              turnStartedAt={gameState.turnStartedAt || Date.now()}
+              moveTimeLimit={room.settings.moveTimeLimit}
+              isCurrentPlayerTurn={gameState.currentPlayerId === currentUserId}
+              isGameActive={isGameActive}
+              onTimeout={onMoveTimeout}
+            />
+          </div>
         </div>
       </div>
 
@@ -437,6 +435,7 @@ function GameRoomContent({ currentUserId, roomId }: { currentUserId: string; roo
               <GameTimer
                 gameTimeLimit={room.settings.gameTimeLimit}
                 gameStartTime={room.createdAt}
+                isGameActive={isGameActive}
                 onTimeout={onGameTimeout}
               />
             </div>

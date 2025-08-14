@@ -53,9 +53,7 @@ export function MoveTimer({
     return () => clearInterval(interval);
   }, [turnStartedAt, moveTimeLimit, isGameActive, onTimeout]);
 
-  if (!moveTimeLimit || !isGameActive) {
-    return null;
-  }
+
 
   const seconds = Math.ceil(timeRemaining / 1000);
 
@@ -95,12 +93,15 @@ export function MoveTimer({
   const shouldPulse = seconds <= 5 && isCurrentPlayerTurn && !isExpired;
 
   return (
+    // This outer div is now always present and holds the space
     <div className={`${className}`}>
+      {/* This inner div contains all content and is what becomes invisible */}
       <div className={`
         p-3 rounded-lg border-2 transition-all duration-300
         ${getBorderColor()}
         ${shouldPulse ? 'animate-pulse' : ''}
         ${isCurrentPlayerTurn ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-900'}
+        ${(!moveTimeLimit || !isGameActive) ? 'invisible' : ''}
       `}>
         <div className="text-center">
           <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">
