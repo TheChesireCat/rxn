@@ -42,7 +42,7 @@ export function TutorialModal({ isOpen, onClose }: TutorialModalProps) {
         return (
           <div className="text-center">
             <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-4">
-              1. Try It: Place Your Orbs
+              Place Your Orbs
             </h3>
             <p className="text-base sm:text-lg mb-4 sm:mb-6 min-h-[72px]">
               You can place orbs in empty cells or cells you already own. <span
@@ -99,7 +99,7 @@ export function TutorialModal({ isOpen, onClose }: TutorialModalProps) {
         return (
           <div className="text-center">
             <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-4">
-              2. Try It: Trigger an Explosion!
+              Trigger an Explosion!
             </h3>
             <p className="text-base sm:text-lg mb-4 sm:mb-6 min-h-[72px]">
               When a cell reaches its limit, it explodes! The red pulsing dot means this center cell is ready to explode with one more orb.
@@ -126,7 +126,7 @@ export function TutorialModal({ isOpen, onClose }: TutorialModalProps) {
         return (
           <div className="text-center">
             <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-4">
-              3. Cell Capacity Rules
+              Cell Capacity Rules
             </h3>
             <p className="text-base sm:text-lg mb-4 sm:mb-6 min-h-[72px]">
               Different positions have different limits. All these cells are one orb away from exploding!
@@ -160,7 +160,7 @@ export function TutorialModal({ isOpen, onClose }: TutorialModalProps) {
         return (
           <div className="text-center">
             <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-4">
-              4. Try It: Capture Enemy Cells!
+              Capture Enemy Cells!
             </h3>
             <p className="text-base sm:text-lg mb-4 sm:mb-6 min-h-[72px]">
               When your cell explodes, it sends orbs to neighboring cells and captures them! Watch the red cells turn blue.
@@ -187,7 +187,7 @@ export function TutorialModal({ isOpen, onClose }: TutorialModalProps) {
         return (
           <div className="text-center">
             <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-4">
-              5. Try It: Chain Reactions!
+              Chain Reactions!
             </h3>
             <p className="text-base sm:text-lg mb-4 sm:mb-6 min-h-[72px]">
               The best part: when captured cells also reach their limit, they explode too! This creates massive chain reactions.
@@ -233,7 +233,7 @@ export function TutorialModal({ isOpen, onClose }: TutorialModalProps) {
         </div>
 
         {/* Content */}
-        <div className="px-6 pb-6 pt-9 sm:px-8 sm:pb-8 sm:pt-12 h-[600px] flex items-center justify-center">
+        <div className="px-6 pb-6 pt-10 sm:px-8 sm:pb-8 sm:pt-12 h-[600px] flex items-center justify-center">
           <div className="text-gray-600 dark:text-gray-300 space-y-6 w-full">
             {getTutorialSlide()}
           </div>
