@@ -35,15 +35,30 @@ interface GameRoomProps {
 function GameRoomContent({ currentUserId, roomId }: { currentUserId: string; roomId: string }) {
   const router = useRouter();
   const { room, gameState, isLoading, error, makeMove, undoMove, refreshRoom } = useGameContext();
-  
+
   // Display state for delayed victory - starts with real game state
   const [displayGameState, setDisplayGameState] = useState(gameState);
-  
+
+  // Track game version to force GameBoard remount on new games
+  const [gameVersion, setGameVersion] = useState(0);
+
   // Update display state when game state changes (fallback for non-animated changes)
+  // Only sync if GameBoard isn't managing the timing (no lastMove = no animations)
   useEffect(() => {
-    setDisplayGameState(gameState);
+    if (!gameState.lastMove) {
+      setDisplayGameState(gameState);
+    }
   }, [gameState]);
-  
+
+  // Detect new game and force GameBoard remount
+  useEffect(() => {
+    // Detect new game (moveCount reset to 0 and status is active)
+    if (gameState.moveCount === 0 && gameState.status === 'active') {
+      setGameVersion(v => v + 1);
+      setDisplayGameState(gameState); // Force reset display state
+    }
+  }, [gameState.moveCount, gameState.status]);
+
   // Modal states - ALL useState hooks at the top
   const [showPlayers, setShowPlayers] = useState(false);
   const [showChat, setShowChat] = useState(false);
@@ -92,7 +107,7 @@ function GameRoomContent({ currentUserId, roomId }: { currentUserId: string; roo
       const currentPlayer = gameState.players.find(p => p.id === currentUserId);
       const role = currentPlayer ? 'player' : 'spectator';
       const userName = currentPlayer?.name || 'Spectator';
-      
+
       presence.setPresence({
         userId: currentUserId,
         name: userName,
@@ -103,7 +118,7 @@ function GameRoomContent({ currentUserId, roomId }: { currentUserId: string; roo
 
   // Show lobby modal when game is waiting - MUST be before conditional returns
   const isWaiting = room?.status === 'waiting';
-  
+
   useEffect(() => {
     if (isWaiting && !showLobby) {
       setShowLobby(true);
@@ -117,12 +132,12 @@ function GameRoomContent({ currentUserId, roomId }: { currentUserId: string; roo
     if (error && currentUserId) {
       // Find current user from SessionManager
       const currentUser = SessionManager.getCurrentUser();
-      
-      if (currentUser?.isClaimed && 
-          (error.includes('session expired') || 
-           error.includes('authentication') ||
-           error.includes('expired'))) {
-        
+
+      if (currentUser?.isClaimed &&
+        (error.includes('session expired') ||
+          error.includes('authentication') ||
+          error.includes('expired'))) {
+
         // Set up recovery modal
         setRecoveryUser({
           username: currentUser.name,
@@ -169,7 +184,7 @@ function GameRoomContent({ currentUserId, roomId }: { currentUserId: string; roo
 
   const handleStartGame = async () => {
     if (!room) return;
-    
+
     try {
       const response = await fetch('/api/game/start', {
         method: 'POST',
@@ -207,7 +222,7 @@ function GameRoomContent({ currentUserId, roomId }: { currentUserId: string; roo
   };
 
   // NOW we can have conditional returns, after ALL hooks have been called
-  
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -225,16 +240,16 @@ function GameRoomContent({ currentUserId, roomId }: { currentUserId: string; roo
         <div className="text-center p-6 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800 max-w-md w-full">
           <div className="mb-4">
             <div className="text-4xl mb-3">
-              <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                width="1em" 
-                height="1em" 
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="1em"
+                height="1em"
                 viewBox="0 0 24 24"
                 className="inline-block text-yellow-600 dark:text-yellow-400"
               >
-                <path 
-                  fill="currentColor" 
-                  d="M22 14h-1c0-3.87-3.13-7-7-7h-1V5.73A2 2 0 1 0 10 4c0 .74.4 1.39 1 1.73V7h-1c-3.87 0-7 3.13-7 7H2c-.55 0-1 .45-1 1v3c0 .55.45 1 1 1h1v1a2 2 0 0 0 2 2h14c1.11 0 2-.89 2-2v-1h1c.55 0 1-.45 1-1v-3c0-.55-.45-1-1-1M9.86 16.68l-1.18 1.18l-1.18-1.18l-1.18 1.18l-1.18-1.18l1.18-1.18l-1.18-1.18l1.18-1.18l1.18 1.18l1.18-1.18l1.18 1.18l-1.18 1.18zm9 0l-1.18 1.18l-1.18-1.18l-1.18 1.18l-1.18-1.18l1.18-1.18l-1.18-1.18l1.18-1.18l1.18 1.18l1.18-1.18l1.18 1.18l-1.18 1.18z" 
+                <path
+                  fill="currentColor"
+                  d="M22 14h-1c0-3.87-3.13-7-7-7h-1V5.73A2 2 0 1 0 10 4c0 .74.4 1.39 1 1.73V7h-1c-3.87 0-7 3.13-7 7H2c-.55 0-1 .45-1 1v3c0 .55.45 1 1 1h1v1a2 2 0 0 0 2 2h14c1.11 0 2-.89 2-2v-1h1c.55 0 1-.45 1-1v-3c0-.55-.45-1-1-1M9.86 16.68l-1.18 1.18l-1.18-1.18l-1.18 1.18l-1.18-1.18l1.18-1.18l-1.18-1.18l1.18-1.18l1.18 1.18l1.18-1.18l1.18 1.18l-1.18 1.18zm9 0l-1.18 1.18l-1.18-1.18l-1.18 1.18l-1.18-1.18l1.18-1.18l-1.18-1.18l1.18-1.18l1.18 1.18l1.18-1.18l1.18 1.18l-1.18 1.18z"
                 />
               </svg>
             </div>
@@ -288,10 +303,10 @@ function GameRoomContent({ currentUserId, roomId }: { currentUserId: string; roo
       <div className="pt-16 pb-24 px-4 flex items-center justify-center min-h-screen">
         <div className="w-full max-w-7xl">
           {/* Victory message - overlaid when game ends (uses display state for proper timing) */}
-          {(displayGameState.status === 'finished' || displayGameState.status === 'runaway') && (
+          {displayGameState.winner && (
             <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
-              <VictoryMessage 
-                gameState={displayGameState} 
+              <VictoryMessage
+                gameState={displayGameState}
                 currentUserId={currentUserId}
                 room={room}
               />
@@ -300,6 +315,7 @@ function GameRoomContent({ currentUserId, roomId }: { currentUserId: string; roo
 
           {/* Game Board - the star of the show */}
           <GameBoard
+            key={`game-${gameVersion}`} // Force remount on new games
             gameState={gameState}
             currentUserId={currentUserId}
             roomId={room.id}
@@ -410,9 +426,9 @@ function GameRoomContent({ currentUserId, roomId }: { currentUserId: string; roo
             onGameTimeout={onGameTimeout}
             onMoveTimeout={onMoveTimeout}
           />
-          
 
-          
+
+
           {room.settings.gameTimeLimit && isGameActive && (
             <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
               <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2">
@@ -450,7 +466,7 @@ function GameRoomContent({ currentUserId, roomId }: { currentUserId: string; roo
               </div>
             </div>
           </div>
-          
+
           {/* Player Stats */}
           <div>
             <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2">
@@ -460,7 +476,7 @@ function GameRoomContent({ currentUserId, roomId }: { currentUserId: string; roo
               {gameState.players.map(player => (
                 <div key={player.id} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded">
                   <div className="flex items-center gap-2">
-                    <div 
+                    <div
                       className="w-4 h-4 rounded-full"
                       style={{ backgroundColor: player.color }}
                     />
@@ -488,7 +504,7 @@ function GameRoomContent({ currentUserId, roomId }: { currentUserId: string; roo
             <h3 className="font-semibold mb-2">Objective</h3>
             <p>Be the last player with orbs on the board!</p>
           </div>
-          
+
           <div>
             <h3 className="font-semibold mb-2">How to Play</h3>
             <ol className="list-decimal list-inside space-y-1">
@@ -504,7 +520,7 @@ function GameRoomContent({ currentUserId, roomId }: { currentUserId: string; roo
               <li>Chain reactions can eliminate opponents!</li>
             </ol>
           </div>
-          
+
           <div>
             <h3 className="font-semibold mb-2">Tips</h3>
             <ul className="list-disc list-inside space-y-1">

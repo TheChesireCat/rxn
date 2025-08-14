@@ -14,26 +14,18 @@ export function TutorialModal({ isOpen, onClose }: TutorialModalProps) {
 
   if (!isOpen) return null;
 
-  // Player colors for demonstration
-  const PLAYER_COLORS = {
-    blue: '#3B82F6',
-    red: '#EF4444',
-  };
-
-
-
-  // Tutorial slide configurations
+  // Enhanced tutorial slide configurations for 5x5 grid
   const getTutorialSlide = () => {
     switch (currentSlide) {
       case 0:
-        // Slide 1: Interactive basic orb placement - center has 1 orb
+        // Slide 1: Two-player interactive sandbox with strategic orb placement
         return (
           <div className="text-center">
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-              1. Try It: Place Orbs in Cells
+              1. Try It: Place Your Orbs
             </h3>
             <p className="text-lg mb-6">
-              When it's your turn, you can place an orb in any empty cell or a cell you already own.
+              You can place orbs in empty cells or cells you already own. Blue and red orbs show different players' territories.
             </p>
             
             <div className="flex justify-center mb-4">
@@ -46,21 +38,22 @@ export function TutorialModal({ isOpen, onClose }: TutorialModalProps) {
               />
             </div>
             
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              <strong>Interactive:</strong> Click on any cell to place your blue orbs!
-            </p>
+            <div className="text-sm text-gray-500 dark:text-gray-400 space-y-2">
+              <p><strong>Interactive:</strong> Click any empty cell or blue cell to place your orbs!</p>
+              <p><strong>Tip:</strong> The blue glow around the board shows it's the blue player's turn right now.</p>
+            </div>
           </div>
         );
 
       case 1:
-        // Slide 2: Stacking orbs until critical mass - center has 3 orbs (critical-1)
+        // Slide 2: Critical mass cell for explosion demonstration
         return (
           <div className="text-center">
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
               2. Try It: Trigger an Explosion!
             </h3>
             <p className="text-lg mb-6">
-              When a cell reaches its critical mass, it explodes! Notice the red pulsing dot - it means one more orb will cause an explosion.
+              When a cell reaches its limit, it explodes! The red pulsing dot means this center cell is ready to explode with one more orb.
             </p>
             
             <div className="flex justify-center mb-4">
@@ -74,20 +67,20 @@ export function TutorialModal({ isOpen, onClose }: TutorialModalProps) {
             </div>
             
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              <strong>Interactive:</strong> Click the center cell with the red dot to trigger an explosion!
+              <strong>Interactive:</strong> Click the pulsing center cell to trigger an explosion!
             </p>
           </div>
         );
 
       case 2:
-        // Slide 3: Different positions have different capacities - all at critical-1
+        // Slide 3: Show corner, edge, and center cells with different critical masses
         return (
           <div className="text-center">
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-              3. Different Positions, Different Limits
+              3. Cell Capacity Rules
             </h3>
             <p className="text-lg mb-6">
-              Corner cells hold 2 orbs max, edge cells hold 3, and center cells hold 4. Notice all the red pulsing dots!
+              Different positions have different limits. All these cells are one orb away from exploding!
             </p>
             
             <div className="flex justify-center mb-4">
@@ -95,27 +88,27 @@ export function TutorialModal({ isOpen, onClose }: TutorialModalProps) {
                 key={`slide-${currentSlide}`}
                 className="scale-75 sm:scale-100" 
                 initialSetup="slide3"
-                interactive={false}
+                interactive={true}
               />
             </div>
             
             <div className="text-sm text-gray-500 dark:text-gray-400 space-y-1">
-              <p><strong>Corner:</strong> 1/2 orbs (red dot = critical next turn)</p>
-              <p><strong>Edge:</strong> 2/3 orbs (red dot = critical next turn)</p>
-              <p><strong>Center:</strong> 3/4 orbs (red dot = critical next turn)</p>
+              <p><strong>Corner (top-left):</strong> 1/2 orbs - explodes at 2</p>
+              <p><strong>Edge (top-center):</strong> 2/3 orbs - explodes at 3</p>
+              <p><strong>Center:</strong> 3/4 orbs - explodes at 4</p>
             </div>
           </div>
         );
 
       case 3:
-        // Slide 4: Interactive infection demo - blue center critical-1, red edge
+        // Slide 4: Infection scenario with blue trigger and red target cells
         return (
           <div className="text-center">
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-              4. Try It: Infect Your Opponents!
+              4. Try It: Capture Enemy Cells!
             </h3>
             <p className="text-lg mb-6">
-              When your orbs explode next to enemy cells, you take them over! Click the blue center cell to see infection in action.
+              When your cell explodes, it sends orbs to neighboring cells and captures them! Watch the red cells turn blue.
             </p>
             
             <div className="flex justify-center mb-4">
@@ -129,20 +122,20 @@ export function TutorialModal({ isOpen, onClose }: TutorialModalProps) {
             </div>
             
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              <strong>Interactive:</strong> Click the blue center cell to explode and infect the red cell above!
+              <strong>Interactive:</strong> Click the blue center cell to capture all 4 red neighbors!
             </p>
           </div>
         );
 
       case 4:
-        // Slide 5: Interactive chain reaction demo - both players at critical-1
+        // Slide 5: Complex chain reaction with multiple waves of explosions
         return (
           <div className="text-center">
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-              5. Try It: Create Chain Reactions!
+              5. Try It: Chain Reactions!
             </h3>
             <p className="text-lg mb-6">
-              When infected cells also reach critical mass, they explode too! Click the blue center to trigger a massive chain reaction.
+              The best part: when captured cells also reach their limit, they explode too! This creates massive chain reactions.
             </p>
             
             <div className="flex justify-center mb-4">
@@ -156,7 +149,7 @@ export function TutorialModal({ isOpen, onClose }: TutorialModalProps) {
             </div>
             
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              <strong>Interactive:</strong> Click the blue center cell and watch the chain reaction spread!
+              <strong>Interactive:</strong> Click the blue center to start a spectacular chain reaction!
             </p>
           </div>
         );
@@ -168,7 +161,7 @@ export function TutorialModal({ isOpen, onClose }: TutorialModalProps) {
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="glass backdrop-blur-sm rounded-2xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto border border-gray-200/50 dark:border-gray-700/50">
+      <div className="glass backdrop-blur-sm rounded-2xl shadow-xl max-w-2xl w-full max-h-[100vh] overflow-y-auto border border-gray-200/50 dark:border-gray-700/50">
         {/* Header */}
         <div className="flex items-center justify-between p-6 sm:p-8 border-b border-gray-200/50 dark:border-gray-700/50">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">

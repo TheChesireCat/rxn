@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { AnimatedCell } from './AnimatedCell';
 import { AnimationLayer } from './AnimationLayer';
 import {
@@ -9,7 +9,9 @@ import {
   PlacementAnimation
 } from '@/lib/animationUtils';
 
-// Game state interfaces
+import { Cell, Player } from '@/types/game';
+
+// Game state interfaces - updated to match GameBoard patterns
 interface MockCell {
   orbs: number;
   ownerId?: string;
@@ -18,9 +20,18 @@ interface MockCell {
 
 interface MockPlayer {
   id: string;
-  name:string;
+  name: string;
   color: string;
-  isEliminated?: boolean;
+  orbCount: number;
+  isEliminated: boolean;
+  isConnected: boolean;
+}
+
+// New interface to match GameBoard's lastMove pattern
+interface MockMove {
+  row: number;
+  col: number;
+  playerId: string;
 }
 
 interface MockBoardProps {
@@ -56,48 +67,80 @@ export function MockBoard({
 }: MockBoardProps) {
   // Default players and state setup
   const defaultPlayers: MockPlayer[] = [
-    { id: 'player1', name: 'Player 1', color: '#3B82F6', isEliminated: false },
-    { id: 'player2', name: 'Player 2', color: '#EF4444', isEliminated: false },
+    { id: 'player1', name: 'Player 1', color: '#3B82F6', orbCount: 0, isEliminated: false, isConnected: true },
+    { id: 'player2', name: 'Player 2', color: '#EF4444', orbCount: 0, isEliminated: false, isConnected: true },
   ];
 
   const gamePlayers = players || defaultPlayers;
   const [currentPlayerId, setCurrentPlayerId] = useState(currentPlayer || gamePlayers[0].id);
 
-  const rows = 3;
-  const cols = 3;
+  const rows = 5;
+  const cols = 5;
   
   function createInitialGrid(setup: string): MockCell[][] {
     const newGrid = Array(rows).fill(null).map((_, row) =>
       Array(cols).fill(null).map((_, col) => ({
         orbs: 0,
-        ownerId: undefined,
         criticalMass: getCriticalMass(row, col, rows, cols),
       }))
     );
 
-    // Initial board setups
+    // Enhanced tutorial slide setups for 5x5 grid - designed for maximum educational impact
     switch (setup) {
-      case 'slide1': newGrid[1][1] = { orbs: 1, ownerId: 'player1', criticalMass: 4 }; break;
-      case 'slide2': newGrid[1][1] = { orbs: 3, ownerId: 'player1', criticalMass: 4 }; break;
+      case 'slide1': 
+        // Two-player interactive sandbox with strategic orb placement
+        // Shows basic placement mechanics with some existing orbs to demonstrate ownership
+        newGrid[1][1] = { ...newGrid[1][1], orbs: 1, ownerId: 'player1' }; // Blue orb in upper-left area
+        newGrid[3][3] = { ...newGrid[3][3], orbs: 1, ownerId: 'player2' }; // Red orb in lower-right area
+        newGrid[2][2] = { ...newGrid[2][2], orbs: 1, ownerId: 'player1' }; // Blue orb in center
+        break;
+      case 'slide2': 
+        // Critical mass cell for explosion demonstration - center cell ready to explode
+        newGrid[2][2] = { ...newGrid[2][2], orbs: 3, ownerId: 'player1' }; // Center cell at critical mass (4-1=3)
+        break;
       case 'slide3':
-        newGrid[0][0] = { orbs: 1, ownerId: 'player1', criticalMass: 2 };
-        newGrid[0][1] = { orbs: 2, ownerId: 'player1', criticalMass: 3 };
-        newGrid[1][1] = { orbs: 3, ownerId: 'player1', criticalMass: 4 };
+        // Show corner, edge, and center cells with different critical masses - all at critical-1
+        newGrid[0][0] = { ...newGrid[0][0], orbs: 1, ownerId: 'player1' }; // Corner (critical mass 2, showing 1)
+        newGrid[0][2] = { ...newGrid[0][2], orbs: 2, ownerId: 'player1' }; // Edge (critical mass 3, showing 2)
+        newGrid[2][2] = { ...newGrid[2][2], orbs: 3, ownerId: 'player1' }; // Center (critical mass 4, showing 3)
         break;
       case 'slide4':
-        newGrid[1][1] = { orbs: 3, ownerId: 'player1', criticalMass: 4 };
-        newGrid[0][1] = { orbs: 1, ownerId: 'player2', criticalMass: 3 };
+        // Infection scenario with blue trigger and red target cells
+        // Blue cell ready to explode and infect surrounding red cells
+        newGrid[2][2] = { ...newGrid[2][2], orbs: 3, ownerId: 'player1' }; // Blue trigger cell (ready to explode)
+        newGrid[1][2] = { ...newGrid[1][2], orbs: 1, ownerId: 'player2' }; // Red target above
+        newGrid[3][2] = { ...newGrid[3][2], orbs: 1, ownerId: 'player2' }; // Red target below
+        newGrid[2][1] = { ...newGrid[2][1], orbs: 1, ownerId: 'player2' }; // Red target left
+        newGrid[2][3] = { ...newGrid[2][3], orbs: 1, ownerId: 'player2' }; // Red target right
         break;
       case 'slide5':
-        newGrid[1][1] = { orbs: 3, ownerId: 'player1', criticalMass: 4 };
-        newGrid[0][1] = { orbs: 2, ownerId: 'player2', criticalMass: 3 };
-        newGrid[1][0] = { orbs: 1, ownerId: 'player2', criticalMass: 3 };
+        // Complex chain reaction with multiple waves of explosions
+        // Designed to create a spectacular multi-wave chain reaction
+        newGrid[2][2] = { ...newGrid[2][2], orbs: 3, ownerId: 'player1' }; // Center trigger (wave 1)
+        newGrid[1][2] = { ...newGrid[1][2], orbs: 3, ownerId: 'player2' }; // Above center (will become critical in wave 1)
+        newGrid[3][2] = { ...newGrid[3][2], orbs: 3, ownerId: 'player2' }; // Below center (will become critical in wave 1)
+        newGrid[2][1] = { ...newGrid[2][1], orbs: 3, ownerId: 'player2' }; // Left of center (will become critical in wave 1)
+        newGrid[2][3] = { ...newGrid[2][3], orbs: 3, ownerId: 'player2' }; // Right of center (will become critical in wave 1)
+        // Secondary chain cells that will explode in wave 2
+        newGrid[0][2] = { ...newGrid[0][2], orbs: 2, ownerId: 'player2' }; // Top edge (will explode in wave 2)
+        newGrid[4][2] = { ...newGrid[4][2], orbs: 2, ownerId: 'player2' }; // Bottom edge (will explode in wave 2)
+        newGrid[2][0] = { ...newGrid[2][0], orbs: 2, ownerId: 'player2' }; // Left edge (will explode in wave 2)
+        newGrid[2][4] = { ...newGrid[2][4], orbs: 2, ownerId: 'player2' }; // Right edge (will explode in wave 2)
         break;
     }
     return newGrid;
   }
 
-  const [grid, setGrid] = useState<MockCell[][]>(() => createInitialGrid(initialSetup));
+  // NEW: Separate logical and display grids (matching GameBoard pattern)
+  const [logicalGrid, setLogicalGrid] = useState<MockCell[][]>(() => createInitialGrid(initialSetup));
+  const [displayGrid, setDisplayGrid] = useState<MockCell[][]>(() => createInitialGrid(initialSetup));
+  
+  // NEW: lastMove state to trigger animations (matching GameBoard pattern)
+  const [lastMove, setLastMove] = useState<MockMove | null>(null);
+  
+  // NEW: Ref to prevent duplicate animation processing (matching GameBoard pattern)
+  const lastProcessedMove = useRef<{ row: number; col: number; playerId: string } | null>(null);
+  
   const [isAnimating, setIsAnimating] = useState(false);
   const [explodingCells, setExplodingCells] = useState<Set<string>>(new Set());
   const [currentAnimations, setCurrentAnimations] = useState<{
@@ -115,14 +158,18 @@ export function MockBoard({
   } | null>(null);
 
   useEffect(() => {
-    setGrid(createInitialGrid(initialSetup));
+    const newGrid = createInitialGrid(initialSetup);
+    setLogicalGrid(newGrid);
+    setDisplayGrid(newGrid);
+    setLastMove(null);
+    lastProcessedMove.current = null;
     setIsAnimating(false);
     setExplodingCells(new Set());
     setCurrentAnimations({ explosions: EMPTY_EXPLOSIONS, orbs: EMPTY_ORBS });
     setWaveIndex(-1); // Reset wave machine on setup change
   }, [initialSetup]);
   
-  // Sizing logic
+  // Sizing logic optimized for 5x5 grid
   const calculateBoardDimensions = () => {
     const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1024;
     const reservedWidth = 64;
@@ -130,9 +177,12 @@ export function MockBoard({
     const maxBoardWidth = availableWidth * 0.9;
     const gap = viewportWidth < 640 ? 4 : 6;
     let cellSize = (maxBoardWidth - (gap * (cols - 1))) / cols;
-    const maxAllowed = cols <= 6 ? 80 : cols <= 8 ? 70 : 60;
-    cellSize = Math.min(cellSize, maxAllowed, 60);
+    
+    // Adjusted max cell size for 5x5 grid to ensure good fit on all devices
+    const maxAllowed = viewportWidth < 640 ? 60 : viewportWidth < 1024 ? 70 : 80;
+    cellSize = Math.min(cellSize, maxAllowed);
     cellSize = Math.max(cellSize, 30);
+    
     const boardWidth = (cellSize * cols) + (gap * (cols - 1));
     const boardHeight = (cellSize * rows) + (gap * (rows - 1));
     return { cellSize: Math.floor(cellSize), gap, boardWidth: Math.floor(boardWidth), boardHeight: Math.floor(boardHeight) };
@@ -203,7 +253,8 @@ export function MockBoard({
 
     // Check if all waves are completed
     if (waveIndex >= waves.length) {
-      setGrid(finalGrid);
+      setLogicalGrid(finalGrid);
+      setDisplayGrid(finalGrid);
       setCurrentAnimations({ explosions: EMPTY_EXPLOSIONS, orbs: EMPTY_ORBS });
       setExplodingCells(new Set());
       setIsAnimating(false);
@@ -218,7 +269,7 @@ export function MockBoard({
 
     // Process the current wave
     const wave = waves[waveIndex];
-    setGrid(wave.gridState);
+    setDisplayGrid(wave.gridState);
 
     const explosionAnims: ExplosionAnimation[] = [];
     const orbAnims: OrbAnimation[] = [];
@@ -226,26 +277,26 @@ export function MockBoard({
     wave.explodingCells.forEach(({ row: fromRow, col: fromCol }: { row: number; col: number }) => {
       // FIX: Use stable ID with waveIndex instead of Date.now()
       explosionAnims.push({ 
+        id: `exp-${waveIndex}-${fromRow}-${fromCol}`,
         row: fromRow, 
         col: fromCol, 
         color: playerColor, 
         delay: 0, 
-        wave: waveIndex,
-        id: `exp-${waveIndex}-${fromRow}-${fromCol}` 
+        wave: waveIndex
       });
       
       const neighbors = getAdjacentCells(fromRow, fromCol);
       neighbors.forEach(({ row: toRow, col: toCol }) => {
         // FIX: Use stable ID with waveIndex instead of Date.now()
         orbAnims.push({ 
+          id: `orb-${waveIndex}-${fromRow},${fromCol}-to-${toRow},${toCol}`,
           fromRow, 
           fromCol, 
           toRow, 
           toCol, 
           color: playerColor, 
           delay: 50, 
-          wave: waveIndex,
-          id: `orb-${waveIndex}-${fromRow},${fromCol}-to-${toRow},${toCol}` 
+          wave: waveIndex
         });
       });
     });
@@ -255,69 +306,156 @@ export function MockBoard({
 
   }, [waveIndex]); // Only depend on waveIndex!
 
-  // handleCellClick now kicks off the wave machine
-  const handleCellClick = async (row: number, col: number) => {
-    if (!interactive || isAnimating) return;
-    const cell = grid[row][col];
-    if (cell.ownerId && cell.ownerId !== currentPlayerId) return;
+  // NEW: Main animation useEffect hook that watches lastMove state changes (matching GameBoard pattern)
+  useEffect(() => {
+    // Skip if no move info or if we already processed this move
+    if (!lastMove ||
+      (lastProcessedMove.current &&
+        lastProcessedMove.current.row === lastMove.row &&
+        lastProcessedMove.current.col === lastMove.col &&
+        lastProcessedMove.current.playerId === lastMove.playerId)) {
+      return;
+    }
 
-    setIsAnimating(true);
+    // Skip if currently animating
+    if (isAnimating && waveIndex >= 0) {
+      return;
+    }
 
-    const player = gamePlayers.find(p => p.id === currentPlayerId);
-    const playerColor = player?.color || '#888888';
+    const { row, col, playerId } = lastMove;
 
-    // 1. Perform placement
-    const gridAfterPlacement = grid.map(r => r.map(c => ({ ...c })));
-    gridAfterPlacement[row][col] = { ...cell, orbs: cell.orbs + 1, ownerId: currentPlayerId };
-    setGrid(gridAfterPlacement);
-    await new Promise(res => setTimeout(res, 200));
+    // Mark this move as processed
+    lastProcessedMove.current = { row, col, playerId };
 
-    // 2. Check for explosions
+    // Get the player who made the move
+    const player = gamePlayers.find(p => p.id === playerId);
+    if (!player) {
+      setIsAnimating(false);
+      return;
+    }
+
+    const playerColor = player.color;
+
+    // Get the grid before the move (from display state)
+    const gridBeforeMove = displayGrid.map(r => r.map(c => ({ ...c })));
+
+    // Simulate placing the orb
+    const gridAfterPlacement = gridBeforeMove.map(r => r.map(c => ({ ...c })));
+    gridAfterPlacement[row][col] = {
+      ...gridBeforeMove[row][col],
+      orbs: gridBeforeMove[row][col].orbs + 1,
+      ownerId: playerId
+    };
+
+    // Check if this placement causes explosions
     if (gridAfterPlacement[row][col].orbs < gridAfterPlacement[row][col].criticalMass) {
+      // Simple placement, no explosions
+      setDisplayGrid(gridAfterPlacement);
+      
+      setTimeout(() => {
+        setIsAnimating(false);
+        // Switch to next player
+        const nextIndex = (gamePlayers.findIndex(p => p.id === currentPlayerId) + 1) % gamePlayers.length;
+        setCurrentPlayerId(gamePlayers[nextIndex].id);
+      }, 200);
+      return;
+    }
+
+    // Explosions will happen - simulate them
+    const { finalGrid, explosionWaves } = simulateExplosionsWithWaves(gridAfterPlacement, playerId);
+
+    if (explosionWaves.length === 0) {
+      // No explosions after all
+      setDisplayGrid(gridAfterPlacement);
       setIsAnimating(false);
       const nextIndex = (gamePlayers.findIndex(p => p.id === currentPlayerId) + 1) % gamePlayers.length;
       setCurrentPlayerId(gamePlayers[nextIndex].id);
-      if (onMove) onMove(row, col);
       return;
     }
-    
-    // 3. Simulate all waves at once
-    const { finalGrid, explosionWaves } = simulateExplosionsWithWaves(gridAfterPlacement, currentPlayerId);
 
-    // 4. Perform the "disappearance" step for the first wave
-    const gridBeforeExplosion = gridAfterPlacement.map(r => r.map(c => ({ ...c })));
-    if (explosionWaves.length > 0) {
-      const firstWaveCells = explosionWaves[0].explodingCells;
-      firstWaveCells.forEach(({ row: r, col: c }: { row: number, col: number }) => {
-        gridBeforeExplosion[r][c].orbs -= gridBeforeExplosion[r][c].criticalMass; 
-        if (gridBeforeExplosion[r][c].orbs <= 0) gridBeforeExplosion[r][c].ownerId = undefined;
-      });
-      setGrid(gridBeforeExplosion);
-      await new Promise(res => setTimeout(res, 100));
-    }
+    // Show placement first
+    setDisplayGrid(gridAfterPlacement);
+
+    // After placement animation, start explosion waves
+    setTimeout(() => {
+      // Perform the "disappearance" step for the first wave
+      if (explosionWaves.length > 0) {
+        const gridBeforeExplosion = gridAfterPlacement.map(r => r.map(c => ({ ...c })));
+        const firstWaveCells = explosionWaves[0].explodingCells;
+        firstWaveCells.forEach(({ row: r, col: c }: { row: number; col: number }) => {
+          gridBeforeExplosion[r][c].orbs -= gridBeforeExplosion[r][c].criticalMass;
+          if (gridBeforeExplosion[r][c].orbs <= 0) {
+            gridBeforeExplosion[r][c].ownerId = undefined;
+          }
+        });
+        setDisplayGrid(gridBeforeExplosion);
+      }
+
+      // Start wave animations after disappearance
+      setTimeout(() => {
+        waveDataRef.current = {
+          waves: explosionWaves,
+          finalGrid,
+          playerColor
+        };
+        setWaveIndex(0);
+      }, 100);
+    }, 200);
+  }, [lastMove, isAnimating, waveIndex, displayGrid, gamePlayers, currentPlayerId]);
+
+  // Refactored handleCellClick to use state-driven pattern (Task 4)
+  const handleCellClick = (row: number, col: number) => {
+    // Basic validation - return early if conditions not met
+    if (!interactive || isAnimating) return;
     
-    // 5. Store wave data and kick off the first wave by setting the index
-    waveDataRef.current = { waves: explosionWaves, finalGrid, playerColor };
-    setWaveIndex(0);
+    const cell = logicalGrid[row][col];
+    
+    // Validate move - can only place in empty cells or cells you own
+    if (cell.ownerId && cell.ownerId !== currentPlayerId) return;
+
+    // Immediately set animating to prevent further clicks
+    setIsAnimating(true);
+    
+    // Update logical grid with the new orb placement
+    const newLogicalGrid = logicalGrid.map(r => r.map(c => ({ ...c })));
+    newLogicalGrid[row][col] = { 
+      ...cell, 
+      orbs: cell.orbs + 1, 
+      ownerId: currentPlayerId 
+    };
+    setLogicalGrid(newLogicalGrid);
+    
+    // Set lastMove state to trigger animation useEffect
+    setLastMove({ row, col, playerId: currentPlayerId });
+    
+    // Call optional callback
     if (onMove) onMove(row, col);
   };
   
-  // Memoize the current animations to prevent unnecessary re-renders
-  const memoizedAnimations = useMemo(() => currentAnimations, [
-    currentAnimations.placement?.id,
-    currentAnimations.explosions.map(e => e.id).join(','),
-    currentAnimations.orbs.map(o => o.id).join(',')
-  ]);
+
   const handleAnimationComplete = () => {
     if (waveIndex >= 0) {
       setWaveIndex(prevIndex => prevIndex + 1);
     }
   };
 
+  // Get current player for color indicator
+  const currentPlayerObj = gamePlayers.find(p => p.id === currentPlayerId);
+
   return (
     <div className={`flex flex-col items-center justify-center ${className}`}>
       <div className="relative">
         <div className="relative bg-white dark:bg-gray-900 p-4 sm:p-6 rounded-2xl shadow-2xl border-2 border-gray-200 dark:border-gray-700">
+          {/* Current player color indicator - similar to GameBoard */}
+          {interactive && currentPlayerObj && (
+            <div
+              className="absolute -top-0.5 left-6 right-6 h-1 rounded-full"
+              style={{
+                background: `linear-gradient(90deg, transparent, ${currentPlayerObj.color}, transparent)`,
+                animation: 'glow 2s ease-in-out infinite',
+              }}
+            />
+          )}
           <div
             className="grid relative"
             style={{
@@ -328,7 +466,7 @@ export function MockBoard({
               height: `${boardHeight}px`,
             }}
           >
-            {grid.map((row, rowIndex) =>
+            {displayGrid.map((row, rowIndex) =>
               row.map((cell, colIndex) => (
                 <AnimatedCell
                   key={`${rowIndex}-${colIndex}`}
@@ -361,6 +499,20 @@ export function MockBoard({
           </div>
         </div>
       </div>
+
+      {/* Glow animation for turn indicator */}
+      <style jsx>{`
+        @keyframes glow {
+          0%, 100% {
+            opacity: 0.6;
+            transform: scaleY(0.8);
+          }
+          50% {
+            opacity: 1;
+            transform: scaleY(1);
+          }
+        }
+      `}</style>
     </div>
   );
 }

@@ -44,9 +44,49 @@ export function GameBoard({
     orbs: OrbAnimation[];
   }>({ explosions: EMPTY_EXPLOSIONS, orbs: EMPTY_ORBS });
   const [explodingCells, setExplodingCells] = useState<Set<string>>(new Set());
+  const [hasShownWinAnimation, setHasShownWinAnimation] = useState(false);
+
+  // Reset animation flag when game state changes to non-winning
+  useEffect(() => {
+    if (gameState.status !== 'finished' && gameState.status !== 'runaway') {
+      setHasShownWinAnimation(false);
+    }
+  }, [gameState.status]);
+
+  // NEW: Reset all animation state when a new game starts (moveCount === 0)
+  useEffect(() => {
+    if (gameState.moveCount === 0) {
+      // Reset all animation-related state variables
+      setIsAnimating(false);
+      setCurrentAnimations({ explosions: EMPTY_EXPLOSIONS, orbs: EMPTY_ORBS });
+      setExplodingCells(new Set());
+      setHasShownWinAnimation(false);
+      setAnimatingGrid(null);
+      setWaveIndex(-1);
+
+      // Clear animation refs
+      waveDataRef.current = null;
+      lastProcessedMove.current = null;
+      pendingMove.current = null;
+
+      // Reset display state to match game state to prevent race condition
+      setDisplayState(gameState);
+    }
+  }, [gameState.moveCount, gameState]);
 
   // NEW: Separate display state from actual game state
-  const [displayState, setDisplayState] = useState<GameState>(gameState);
+  // Initialize without winner info if this is a winning state that needs animation
+  const [displayState, setDisplayState] = useState<GameState>(() => {
+    // If game is finished/runaway and has lastMove, start without winner for animation
+    if ((gameState.status === 'finished' || gameState.status === 'runaway') && gameState.lastMove) {
+      return {
+        ...gameState,
+        // Keep the original status, just hide winner to prevent modal flashing
+        winner: undefined // Hide winner until animation completes
+      };
+    }
+    return gameState;
+  });
   const [animatingGrid, setAnimatingGrid] = useState<Cell[][] | null>(null);
 
   // State for managing wave-by-wave animations
@@ -62,7 +102,6 @@ export function GameBoard({
 
   const boardRef = useRef<HTMLDivElement>(null);
   const pendingMove = useRef<{ row: number; col: number } | null>(null);
-  const previousGameState = useRef<GameState | null>(null);
   const lastProcessedMove = useRef<{ moveCount: number; row: number; col: number; playerId: string } | null>(null);
 
   const isCurrentPlayerTurn = gameState.currentPlayerId === currentUserId;
@@ -78,10 +117,7 @@ export function GameBoard({
     currentUserName,
   });
 
-  // Get player by ID
-  const getPlayer = (playerId: string) => {
-    return gameState.players.find(p => p.id === playerId);
-  };
+
 
   // Helper function to get adjacent cells
   function getAdjacentCells(row: number, col: number, rows: number, cols: number): Array<{ row: number; col: number }> {
@@ -201,10 +237,14 @@ export function GameBoard({
       setAnimatingGrid(gridAfterPlacement);
 
       setTimeout(() => {
+        // For winning moves, mark animation as shown and show final state
+        if (gameState.status === 'finished' || gameState.status === 'runaway') {
+          setHasShownWinAnimation(true);
+        }
         setDisplayState(gameState);
         setAnimatingGrid(null);
         setIsAnimating(false);
-      }, 50);
+      }, 200); // Increased from 50ms for smoother transition
       return;
     }
 
@@ -212,7 +252,10 @@ export function GameBoard({
     const { explosionWaves } = simulateExplosionsWithWaves(gridAfterPlacement, playerId);
 
     if (explosionWaves.length === 0) {
-      // No explosions after all, just update
+      // No explosions after all, mark animation as shown if it's a winning move
+      if (gameState.status === 'finished' || gameState.status === 'runaway') {
+        setHasShownWinAnimation(true);
+      }
       setDisplayState(gameState);
       return;
     }
@@ -240,6 +283,15 @@ export function GameBoard({
 
       // Start wave animations after disappearance
       setTimeout(() => {
+        // Hide winner status during animations by updating displayState
+        if (gameState.status === 'finished' || gameState.status === 'runaway') {
+          setDisplayState(prev => ({
+            ...prev,
+            // Don't change status to prevent modal flashing, just hide winner
+            winner: undefined // Hide winner until animation completes
+          }));
+        }
+
         waveDataRef.current = {
           waves: explosionWaves,
           finalState: gameState, // Store the final state to apply after animations
@@ -257,21 +309,43 @@ export function GameBoard({
   // Notify parent about display state changes for victory timing
   useEffect(() => {
     if (onDisplayStateChange) {
-      onDisplayStateChange(displayState);
+      // Only notify parent with winner if animations are done
+      if (displayState.winner && !hasShownWinAnimation) {
+        // Send state without winner until animations complete
+        onDisplayStateChange({
+          ...displayState,
+          status: 'active',
+          winner: undefined
+        });
+      } else {
+        // Safe to send full state (either no winner, or animations completed)
+        onDisplayStateChange(displayState);
+      }
     }
-  }, [displayState, onDisplayStateChange]);
+  }, [displayState, onDisplayStateChange, hasShownWinAnimation]);
 
   // Update display state when game state changes (but not during animations)
   useEffect(() => {
     // If not animating and no pending animations, update display state
     if (!isAnimating && waveIndex === -1 && !animatingGrid) {
-      // Only update if it's actually different
+      // Check if this is a winning move that needs animation delay
+      if ((gameState.status === 'finished' || gameState.status === 'runaway') &&
+        gameState.lastMove &&
+        displayState.status === 'active') {
+        // This is a winning move - keep displayState as active until animations complete
+        // Don't update displayState yet, let the animation system handle it
+        return;
+      }
+
+      // For non-winning moves or when no lastMove info, update directly
       if (gameState.moveCount !== displayState.moveCount && !gameState.lastMove) {
-        // Game state changed but no lastMove info - just update directly
+        setDisplayState(gameState);
+      } else if (!gameState.lastMove) {
+        // No lastMove means this isn't an animated move, safe to update
         setDisplayState(gameState);
       }
     }
-  }, [gameState, isAnimating, waveIndex, animatingGrid, displayState.moveCount]);
+  }, [gameState, isAnimating, waveIndex, animatingGrid, displayState.moveCount, displayState.status]);
 
   // This effect hook drives the wave-by-wave animation
   useEffect(() => {
@@ -287,7 +361,9 @@ export function GameBoard({
 
     // Check if all waves are completed
     if (waveIndex >= waves.length) {
-      // All animations done - update to final state
+      // Mark that we've shown the win animation
+      setHasShownWinAnimation(true);
+      // All animations done - update to final state WITH victory info
       setDisplayState(finalState);
       setAnimatingGrid(null);
       setCurrentAnimations({ explosions: EMPTY_EXPLOSIONS, orbs: EMPTY_ORBS });
@@ -312,23 +388,25 @@ export function GameBoard({
 
     wave.explodingCells.forEach(({ row: fromRow, col: fromCol }: { row: number; col: number }) => {
       explosionAnims.push({
+        id: `exp-${waveIndex}-${fromRow}-${fromCol}`,
         row: fromRow,
         col: fromCol,
         color: playerColor,
         delay: 0,
-        id: `exp-${waveIndex}-${fromRow}-${fromCol}`
+        wave: waveIndex
       });
 
       const neighbors = getAdjacentCells(fromRow, fromCol, rows, cols);
       neighbors.forEach(({ row: toRow, col: toCol }) => {
         orbAnims.push({
+          id: `orb-${waveIndex}-${fromRow},${fromCol}-to-${toRow},${toCol}`,
           fromRow,
           fromCol,
           toRow,
           toCol,
           color: playerColor,
           delay: 50,
-          id: `orb-${waveIndex}-${fromRow},${fromCol}-to-${toRow},${toCol}`
+          wave: waveIndex
         });
       });
     });

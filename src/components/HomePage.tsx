@@ -170,10 +170,10 @@ export function HomePage() {
           <div className="mb-6 sm:mb-8">
             <div className="glass backdrop-blur-sm rounded-lg px-4 py-3 shadow-lg border border-gray-200/50 dark:border-gray-700/50 max-w-md mx-auto">
               <p className="text-sm text-gray-600 dark:text-gray-400 text-center">
-                <strong className="text-gray-800 dark:text-gray-200">NOTE:</strong> If this is your first time playing{' '}
+                <strong className="text-gray-800 dark:text-gray-200">PSSST:</strong> if this is your first time playing{' '}
                 <button
                   onClick={() => setShowTutorial(true)}
-                  className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 underline underline-offset-2 hover:underline-offset-4 transition-all duration-200 font-medium"
+                  className="inline-flex items-center px-3 py-1 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-all duration-200 shadow-[0_0_10px_rgba(59,130,246,0.3)] hover:shadow-[0_0_15px_rgba(59,130,246,0.5)] animate-pulse"
                 >
                   click here
                 </button>
@@ -191,8 +191,8 @@ export function HomePage() {
                   </span>
                   {/* User status indicator */}
                   <div className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${currentUser.isClaimed
-                      ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
-                      : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+                    ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                    : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
                     }`}>
                     {currentUser.isClaimed ? (
                       <>

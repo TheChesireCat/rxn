@@ -34,8 +34,11 @@ export function SpectatorView({
   const [displayGameState, setDisplayGameState] = React.useState(gameState);
   
   // Update display state when game state changes (fallback for non-animated changes)
+  // Only sync if GameBoard isn't managing the timing (no lastMove = no animations)
   React.useEffect(() => {
-    setDisplayGameState(gameState);
+    if (!gameState.lastMove) {
+      setDisplayGameState(gameState);
+    }
   }, [gameState]);
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -64,7 +67,7 @@ export function SpectatorView({
             </div>
 
             {/* Victory message - shown when game is finished (uses display state for proper timing) */}
-            {(displayGameState.status === 'finished' || displayGameState.status === 'runaway') && (
+            {displayGameState.winner && (
               <VictoryMessage 
                 gameState={displayGameState} 
                 currentUserId={currentUserId}

@@ -48,7 +48,7 @@ export function generateMoveAnimations(
   
   // Initial placement animation
   const placementAnimation: PlacementAnimation = {
-    id: `placement-${moveRow}-${moveCol}-${Date.now()}`,
+    id: `placement-${moveRow}-${moveCol}`,
     row: moveRow,
     col: moveCol,
     color: playerColor,
@@ -91,7 +91,7 @@ export function generateMoveAnimations(
     unstableCells.forEach(({ row, col }) => {
       const cell = currentGrid[row][col];
       explosionAnimations.push({
-        id: `explosion-${row}-${col}-${wave}-${Date.now()}`,
+        id: `explosion-${row}-${col}-${wave}`,
         row,
         col,
         color: playerColor,
@@ -103,7 +103,7 @@ export function generateMoveAnimations(
       const adjacentCells = getAdjacentCells(row, col, rows, cols);
       adjacentCells.forEach((adjacent, index) => {
         orbAnimations.push({
-          id: `orb-${row}-${col}-to-${adjacent.row}-${adjacent.col}-${wave}-${Date.now()}-${index}`,
+          id: `orb-${row}-${col}-to-${adjacent.row}-${adjacent.col}-${wave}-${index}`,
           fromRow: row,
           fromCol: col,
           toRow: adjacent.row,

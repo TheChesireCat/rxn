@@ -289,9 +289,18 @@
   - Refactor large components into smaller ones
   - Add accessibility improvements (ARIA labels, keyboard navigation)
 
+- [x] 32. Fix animation flash bug on game restart
+  - Add useEffect hook to GameBoard.tsx to detect new game state (moveCount === 0)
+  - Reset all animation-related state variables when new game is detected
+  - Clear animation refs (waveDataRef, lastProcessedMove, pendingMove)
+  - Reset display state to prevent race condition with component remount
+  - Test that "Play Again" no longer shows animation flash
+  - _Requirements: 12.1, 12.2, 12.3, 12.4 (game restart functionality)_
+  - _Note: Fixes race condition where old GameBoard instance briefly processes new game state before remount_
+
 ### Deployment Considerations
 
-- [ ] 32. Production readiness
+- [ ] 33. Production readiness
   - Set up environment variables for production
   - Configure rate limiting for API endpoints
   - Add monitoring and error tracking (Sentry)

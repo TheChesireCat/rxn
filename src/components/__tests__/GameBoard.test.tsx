@@ -3,7 +3,8 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GameBoard } from '../GameBoard';
 import { GameState } from '@/types/game';
-import { createEmptyGrid, PLAYER_COLORS } from '@/lib/gameLogic';
+import { createEmptyGrid } from '@/lib/gameLogic';
+import { PLAYER_COLORS } from '@/lib/constants';
 
 // Mock game state
 const createMockGameState = (overrides: Partial<GameState> = {}): GameState => ({
