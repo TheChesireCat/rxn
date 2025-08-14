@@ -69,6 +69,7 @@ export function TutorialModal({ isOpen, onClose }: TutorialModalProps) {
             </div>
 
             <div className="text-sm text-gray-500 dark:text-gray-400 space-y-2 min-h-[112px] flex flex-col justify-center">
+            <p><strong>Interactive:</strong> Try tapping the board! You can play as both colors, for now</p>
               <div
                 className="p-2 rounded-lg border-2 transition-colors duration-300"
                 style={{
