@@ -66,7 +66,7 @@ Each task builds incrementally on previous tasks and focuses on specific coding 
   - Test that all animations render correctly with new system
   - _Requirements: 3.1, 3.2, 3.4, 8.1, 8.3_
 
-- [ ] 8. Redesign tutorial slide configurations for 5x5 grid
+- [x] 8. Redesign tutorial slide configurations for 5x5 grid
   - Update Slide 1 setup: Create two-player interactive sandbox with strategic orb placement
   - Update Slide 2 setup: Position critical mass cell for explosion demonstration
   - Update Slide 3 setup: Show corner, edge, and center cells with different critical masses

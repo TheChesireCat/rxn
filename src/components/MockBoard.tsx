@@ -41,6 +41,7 @@ interface MockBoardProps {
   currentPlayer?: string;
   players?: MockPlayer[];
   onMove?: (row: number, col: number) => void;
+  onCurrentPlayerChange?: (playerId: string, playerColor: string) => void;
 }
 
 // Helper function to calculate critical mass based on position
@@ -63,7 +64,8 @@ export function MockBoard({
   initialSetup = 'empty',
   currentPlayer,
   players,
-  onMove
+  onMove,
+  onCurrentPlayerChange
 }: MockBoardProps) {
   // Default players and state setup
   const defaultPlayers: MockPlayer[] = [
@@ -140,6 +142,9 @@ export function MockBoard({
   
   // NEW: Ref to prevent duplicate animation processing (matching GameBoard pattern)
   const lastProcessedMove = useRef<{ row: number; col: number; playerId: string } | null>(null);
+  
+  // Ref to track previous player to prevent unnecessary callback calls
+  const previousPlayerIdRef = useRef<string | null>(null);
   
   const [isAnimating, setIsAnimating] = useState(false);
   const [explodingCells, setExplodingCells] = useState<Set<string>>(new Set());
@@ -244,6 +249,17 @@ export function MockBoard({
   useEffect(() => {
     currentPlayerIdRef.current = currentPlayerId;
   }, [currentPlayerId]);
+
+  // Separate effect for notifying parent of player changes (only when currentPlayerId actually changes)
+  useEffect(() => {
+    if (onCurrentPlayerChange && previousPlayerIdRef.current !== currentPlayerId) {
+      const currentPlayerData = gamePlayers.find(p => p.id === currentPlayerId);
+      if (currentPlayerData) {
+        onCurrentPlayerChange(currentPlayerId, currentPlayerData.color);
+        previousPlayerIdRef.current = currentPlayerId;
+      }
+    }
+  }, [currentPlayerId]); // Only depend on currentPlayerId, not the callback or gamePlayers
 
   // This effect hook drives the wave-by-wave animation
   useEffect(() => {
